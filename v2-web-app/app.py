@@ -340,8 +340,12 @@ def calculate_optimal_chunk_length(uploaded_file):
 def check_company_access():
     """社内専用アクセス認証"""
     
-    # 社内専用アクセスキー
-    COMPANY_ACCESS_KEY = "tatsujiro2025"
+    # 社内専用アクセスキー（環境変数またはSecretsから取得）
+    try:
+        COMPANY_ACCESS_KEY = st.secrets["COMPANY_ACCESS_KEY"]
+    except:
+        # フォールバック用のデフォルトキー（本番環境では削除推奨）
+        COMPANY_ACCESS_KEY = "TJ2025-MojiOkoshi-SecureKey-Internal"
     
     # セッション状態の初期化
     if 'authenticated' not in st.session_state:
