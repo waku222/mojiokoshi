@@ -1,0 +1,23 @@
+# 音声文字起こし用の依存関係
+google-cloud-speech>=2.21.0
+google-cloud-storage>=2.10.0
+pydub>=0.25.1
+
+# Streamlitアプリ用の依存関係
+streamlit>=1.28.0
+streamlit-option-menu>=0.3.6
+
+# 動画処理用の依存関係
+opencv-python>=4.8.0
+moviepy>=1.0.3
+ffmpeg-python>=0.2.0
+
+# ファイル処理・ユーティリティ
+Pillow>=10.0.0
+pandas>=2.0.0
+numpy>=1.24.0
+
+# 注意: FFmpegが別途システムにインストールされている必要があります
+# macOS: brew install ffmpeg
+# Ubuntu: sudo apt install ffmpeg
+# Windows: https://ffmpeg.org/download.html からダウンロード 

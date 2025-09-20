@@ -1,0 +1,16 @@
+[server]
+maxUploadSize = 500
+headless = true
+runOnSave = false
+
+[global]
+developmentMode = false
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+primaryColor = "#1f77b4"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f0f2f6"
+textColor = "#262730"

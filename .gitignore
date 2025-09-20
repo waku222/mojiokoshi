@@ -1,0 +1,88 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+new_venv/
+ENV/
+env/
+.venv
+
+# Google Cloud認証ファイル（機密情報）
+credentials/
+*.json
+!requirements.json
+!package.json
+service-account-key.json
+
+# 環境設定ファイル
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ログファイル
+*.log
+logs/
+
+# 一時ファイル
+temp/
+tmp/
+*.tmp
+*.temp
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Streamlit
+.streamlit/secrets.toml
+
+# 音声・動画ファイル（大容量ファイル）
+*.wav
+*.mp3
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.wmv
+*.webm
+*.flac
+*.m4a
+*.ogg
+
+# 文字起こし結果ファイル
+transcription_*.txt
