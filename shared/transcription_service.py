@@ -8,6 +8,8 @@ import logging
 # Google Cloud関連
 from google.cloud import speech
 from google.cloud import storage
+from google.oauth2 import service_account
+import json
 
 # 音声処理関連
 from pydub import AudioSegment
@@ -19,23 +21,33 @@ logger = logging.getLogger(__name__)
 
 class AudioTranscriptionService:
     def __init__(self, 
-                 service_account_path: str,
-                 gcs_bucket_name: str):
+                 service_account_path: str = None,
+                 gcs_bucket_name: str = None,
+                 service_account_info: dict = None):
         """
         音声文字起こしサービス（ローカルWAVファイル専用）
         
         Args:
             service_account_path: Google Cloud Speech-to-Text用のサービスアカウントキーファイルパス
             gcs_bucket_name: Google Cloud Storage バケット名（長時間音声処理用）
+            service_account_info: サービスアカウントの認証情報（辞書形式）
         """
         self.service_account_path = service_account_path
         self.gcs_bucket_name = gcs_bucket_name
+        self.service_account_info = service_account_info
         
-        # Google Cloud Speech クライアント初期化
-        self.speech_client = speech.SpeechClient.from_service_account_file(service_account_path)
-        
-        # Google Cloud Storage クライアント初期化
-        self.storage_client = storage.Client.from_service_account_json(service_account_path)
+        # 認証方法を決定
+        if service_account_info:
+            # Streamlit Secrets等からのJSONデータを使用
+            credentials = service_account.Credentials.from_service_account_info(service_account_info)
+            self.speech_client = speech.SpeechClient(credentials=credentials)
+            self.storage_client = storage.Client(credentials=credentials)
+        elif service_account_path:
+            # ファイルパスから認証情報を読み込み
+            self.speech_client = speech.SpeechClient.from_service_account_file(service_account_path)
+            self.storage_client = storage.Client.from_service_account_json(service_account_path)
+        else:
+            raise ValueError("service_account_pathまたはservice_account_infoのいずれかを指定してください")
     
     def validate_audio_file(self, audio_path: str) -> bool:
         """

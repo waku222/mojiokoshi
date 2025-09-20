@@ -48,9 +48,18 @@ def main():
     
     st.markdown("---")  # セパレーター追加
     
-    # 認証情報の確認
+    # 認証情報の確認（Streamlit Cloud対応）
     credentials_path = os.path.join(os.path.dirname(__file__), "..", "credentials", "service-account-key.json")
-    credentials_exists = os.path.exists(credentials_path)
+    
+    # Streamlit Cloudの場合はsecretsから認証情報を取得
+    try:
+        gcp_service_account = st.secrets["gcp_service_account"]
+        credentials_exists = bool(gcp_service_account)
+        use_streamlit_secrets = True
+    except (KeyError, FileNotFoundError):
+        # ローカル環境の場合
+        credentials_exists = os.path.exists(credentials_path)
+        use_streamlit_secrets = False
     
     # サイドバー設定
     with st.sidebar:
@@ -65,10 +74,15 @@ def main():
             st.error("❌ 認証ファイルが見つかりません")
             st.error(f"以下の場所に配置してください:\n`{credentials_path}`")
         
-        # GCSバケット名
+        # GCSバケット名（Streamlit Cloud対応）
+        try:
+            default_bucket = st.secrets.get("GCS_BUCKET_NAME", GCS_BUCKET_NAME)
+        except:
+            default_bucket = GCS_BUCKET_NAME
+            
         gcs_bucket = st.text_input(
             "GCSバケット名",
-            value=GCS_BUCKET_NAME,
+            value=default_bucket,
             help="長時間音声処理用のGCSバケット名"
         )
         
@@ -132,9 +146,10 @@ def main():
                 # 文字起こし処理を実行
                 process_transcription(
                     uploaded_file, 
-                    credentials_path, 
+                    credentials_path if not use_streamlit_secrets else None, 
                     gcs_bucket, 
-                    optimal_chunk_length_ms
+                    optimal_chunk_length_ms,
+                    use_streamlit_secrets
                 )
     
     with col2:
@@ -157,7 +172,7 @@ def main():
             elif st.session_state.processing_status == "エラー":
                 st.error("❌ 処理中にエラーが発生しました")
 
-def process_transcription(uploaded_file, credentials_path, gcs_bucket, chunk_length_ms):
+def process_transcription(uploaded_file, credentials_path, gcs_bucket, chunk_length_ms, use_streamlit_secrets=False):
     """文字起こし処理の実行"""
     
     try:
@@ -185,7 +200,8 @@ def process_transcription(uploaded_file, credentials_path, gcs_bucket, chunk_len
             gcs_bucket, 
             chunk_length_ms,
             progress_bar,
-            status_text
+            status_text,
+            use_streamlit_secrets
         ))
         
         if result:
@@ -221,7 +237,7 @@ def process_transcription(uploaded_file, credentials_path, gcs_bucket, chunk_len
         st.error(f"エラーが発生しました: {str(e)}")
         logger.error(f"文字起こし処理エラー: {str(e)}")
 
-async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_length_ms, progress_bar, status_text):
+async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_length_ms, progress_bar, status_text, use_streamlit_secrets=False):
     """非同期文字起こし処理"""
     
     try:
@@ -246,10 +262,19 @@ async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_
         status_text.text("🤖 文字起こしサービス初期化中...")
         progress_bar.progress(30)
         
-        transcription_service = AudioTranscriptionService(
-            service_account_path=credentials_path,
-            gcs_bucket_name=gcs_bucket
-        )
+        if use_streamlit_secrets:
+            # Streamlit Secretsから認証情報を取得
+            gcp_service_account = st.secrets["gcp_service_account"]
+            transcription_service = AudioTranscriptionService(
+                service_account_info=dict(gcp_service_account),
+                gcs_bucket_name=gcs_bucket
+            )
+        else:
+            # ローカルファイルから認証
+            transcription_service = AudioTranscriptionService(
+                service_account_path=credentials_path,
+                gcs_bucket_name=gcs_bucket
+            )
         
         # 出力用の一時ファイル
         with tempfile.NamedTemporaryFile(delete=False, suffix=".txt", mode='w') as output_file:

@@ -1,6 +1,7 @@
 # 音声文字起こし用の依存関係
 google-cloud-speech>=2.21.0
 google-cloud-storage>=2.10.0
+google-auth>=2.22.0
 pydub>=0.25.1
 
 # Streamlitアプリ用の依存関係
