@@ -29,6 +29,7 @@ env/
 
 # Google Cloud認証ファイル（機密情報）
 credentials/
+credentials/*.json
 *.json
 !requirements.json
 !package.json
