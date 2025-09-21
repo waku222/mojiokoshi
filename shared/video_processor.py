@@ -100,7 +100,9 @@ class VideoProcessor:
             '.mp4', '.avi', '.mov', '.wmv', '.flv', 
             '.mkv', '.webm', '.m4v', '.3gp', '.mts'
         }
+        # MoviePyが使用できない場合はOpenCVのみでも一部動画処理を提供
         self.video_processing_available = MOVIEPY_AVAILABLE and CV2_AVAILABLE
+        self.opencv_only_mode = CV2_AVAILABLE and not MOVIEPY_AVAILABLE
         
         # 詳細な可用性情報をログ出力（強化版）
         logger.info("=" * 50)

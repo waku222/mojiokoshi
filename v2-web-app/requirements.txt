@@ -12,9 +12,12 @@ pydub>=0.25.1
 
 # 動画処理関連
 opencv-python-headless>=4.8.0
-moviepy>=1.0.3
+# moviepy>=1.0.3  # Python 3.13互換性問題のため一時的に無効
 imageio-ffmpeg>=0.4.9
 ffmpeg-python>=0.2.0
+
+# Python 3.13対応版MoviePy（実験的）
+moviepy>=1.0.3; python_version < '3.13'
 
 # Python 3.13互換性対応（条件付きインストール）
 audioop-lts; python_version >= '3.13'
