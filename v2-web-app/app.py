@@ -75,7 +75,7 @@ def main():
         # セクション形式とフラット形式の両方に対応
         try:
             # セクション形式を試行
-        gcp_service_account = st.secrets["gcp_service_account"]
+            gcp_service_account = st.secrets["gcp_service_account"]
             debug_info.append("gcp_service_account取得成功（セクション形式）")
             
             # より詳細な認証情報確認
