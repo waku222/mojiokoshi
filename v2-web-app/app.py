@@ -311,16 +311,34 @@ COMPANY_ACCESS_KEY = "tatsujiro25"''', language="toml")
         )
         
         if uploaded_file is not None:
-            # ファイル情報表示
-            file_size_mb = len(uploaded_file.getvalue()) / (1024 * 1024)
-            is_video = uploaded_file.name.lower().endswith(('.mp4', '.avi', '.mov', '.mkv', '.wmv', '.webm'))
+        # ファイル情報表示
+        file_size_mb = len(uploaded_file.getvalue()) / (1024 * 1024)
+        is_video = uploaded_file.name.lower().endswith(('.mp4', '.avi', '.mov', '.mkv', '.wmv', '.webm'))
+        
+        if is_video and not VIDEO_PROCESSING_AVAILABLE:
+            st.error("❌ 動画ファイルが選択されましたが、動画処理機能は現在利用できません。音声ファイルを選択してください。")
+            return
+        
+        file_type = "動画" if is_video else "音声"
+        st.info(f"**ファイル情報**  \nファイル名: {uploaded_file.name}  \nタイプ: {file_type}ファイル  \nサイズ: {file_size_mb:.2f}MB")
+        
+        # 大容量ファイル警告
+        if file_size_mb > 200:
+            st.warning(f"⚠️ **大容量ファイル警告** ({file_size_mb:.1f}MB)")
+            st.warning("**Streamlit Cloud無料枠では200MB以上のファイル処理に制限があります**")
+            st.warning("推奨対策:")
+            st.markdown("""
+            - **音声ファイル圧縮**: MP3形式で再エンコード
+            - **ファイル分割**: 複数の小さなファイルに分割
+            - **サンプリング**: より低いサンプリングレートで変換
+            """)
             
-            if is_video and not VIDEO_PROCESSING_AVAILABLE:
-                st.error("❌ 動画ファイルが選択されましたが、動画処理機能は現在利用できません。音声ファイルを選択してください。")
+            if st.button("⚠️ 理解した上で処理を続行", type="secondary"):
+                st.session_state.large_file_confirmed = True
+            
+            if not st.session_state.get('large_file_confirmed', False):
+                st.info("💡 **推奨**: 50MB以下の小さなファイルから試すことをお勧めします")
                 return
-            
-            file_type = "動画" if is_video else "音声"
-            st.info(f"**ファイル情報**  \nファイル名: {uploaded_file.name}  \nタイプ: {file_type}ファイル  \nサイズ: {file_size_mb:.2f}MB")
             
             # 処理ボタン
             if st.button("🚀 文字起こし開始", type="primary", use_container_width=True):
