@@ -582,12 +582,36 @@ async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_
         progress_bar.progress(30)
         
         if use_streamlit_secrets:
-            # Streamlit Secretsから認証情報を取得
+            # Streamlit Secretsから認証情報を取得（デバッグ強化版）
             gcp_service_account = st.secrets["gcp_service_account"]
-            transcription_service = AudioTranscriptionService(
-                service_account_info=dict(gcp_service_account),
-                gcs_bucket_name=gcs_bucket
-            )
+            
+            # デバッグ情報をUI表示
+            debug_info.append("=" * 30)
+            debug_info.append("🔍 認証情報詳細デバッグ")
+            debug_info.append("=" * 30)
+            debug_info.append(f"認証方式: Streamlit Secrets")
+            debug_info.append(f"利用可能キー: {list(gcp_service_account.keys())}")
+            
+            if 'private_key' in gcp_service_account:
+                pk_info = gcp_service_account['private_key']
+                debug_info.append(f"private_key長: {len(pk_info)}文字")
+                debug_info.append(f"private_key開始: {pk_info[:50]}...")
+                debug_info.append(f"private_key終了: ...{pk_info[-50:]}")
+                debug_info.append(f"エスケープ文字数: {pk_info.count('\\\\n')}")
+                debug_info.append(f"実改行数: {pk_info.count('\\n')}")
+            
+            try:
+                transcription_service = AudioTranscriptionService(
+                    service_account_info=dict(gcp_service_account),
+                    gcs_bucket_name=gcs_bucket
+                )
+                debug_info.append("✅ AudioTranscriptionService初期化成功")
+            except Exception as auth_error:
+                debug_info.append(f"❌ AudioTranscriptionService初期化失敗: {str(auth_error)}")
+                debug_info.append("🔧 エラー詳細情報:")
+                debug_info.append(f"   - エラータイプ: {type(auth_error).__name__}")
+                debug_info.append(f"   - エラーメッセージ: {str(auth_error)}")
+                raise auth_error
         else:
             # ローカルファイルから認証
             transcription_service = AudioTranscriptionService(
