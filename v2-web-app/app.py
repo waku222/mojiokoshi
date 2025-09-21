@@ -700,11 +700,15 @@ def check_company_access():
         
         /* アクセスキーラベルのスタイル */
         .access-key-label {
-            color: white;
+            color: black;
+            background-color: rgba(255, 255, 255, 0.9);
             font-weight: bold;
             font-size: 1.1rem;
             margin-bottom: 0.5rem;
             text-align: center;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
         }
         
         /* 入力欄のスタイル改善 */
