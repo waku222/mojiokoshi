@@ -36,26 +36,13 @@ class AudioTranscriptionService:
         self.gcs_bucket_name = gcs_bucket_name
         self.service_account_info = service_account_info
         
-        # 認証方法を決定（Base64エラー対策版）
+        # 認証方法を決定（シンプル版）
         if service_account_info:
-            # Streamlit Secrets等からのJSONデータを使用（Base64修正処理追加）
-            try:
-                # サービスアカウント情報のBase64関連データを修正
-                fixed_service_account_info = self._fix_base64_in_service_account(service_account_info)
-                
-                credentials = service_account.Credentials.from_service_account_info(fixed_service_account_info)
-                self.speech_client = speech.SpeechClient(credentials=credentials)
-                self.storage_client = storage.Client(credentials=credentials)
-                logger.info("✅ 認証成功（Base64修正版）")
-                
-            except Exception as e:
-                logger.error(f"❌ 認証エラー（Base64関連）: {e}")
-                # デバッグ情報を出力
-                logger.error(f"サービスアカウント情報キー: {list(service_account_info.keys())}")
-                if 'private_key' in service_account_info:
-                    private_key_len = len(service_account_info['private_key'])
-                    logger.error(f"private_key長: {private_key_len}")
-                raise
+            # Streamlit Secrets等からのJSONデータを使用
+            credentials = service_account.Credentials.from_service_account_info(service_account_info)
+            self.speech_client = speech.SpeechClient(credentials=credentials)
+            self.storage_client = storage.Client(credentials=credentials)
+            logger.info("✅ 認証成功")
         elif service_account_path:
             # ファイルパスから認証情報を読み込み
             self.speech_client = speech.SpeechClient.from_service_account_file(service_account_path)
@@ -63,82 +50,6 @@ class AudioTranscriptionService:
         else:
             raise ValueError("service_account_pathまたはservice_account_infoのいずれかを指定してください")
     
-    def _fix_base64_in_service_account(self, service_account_info: dict) -> dict:
-        """サービスアカウント情報のBase64データを修正"""
-        import base64
-        import re
-        
-        fixed_info = service_account_info.copy()
-        
-        if 'private_key' in fixed_info:
-            private_key = fixed_info['private_key']
-            logger.info(f"Private key修正開始（長さ: {len(private_key)}）")
-            
-            try:
-                # 診断情報を詳細に記録
-                has_begin = '-----BEGIN PRIVATE KEY-----' in private_key
-                has_end = '-----END PRIVATE KEY-----' in private_key
-                key_length = len(private_key)
-                
-                logger.info(f"🔍 Private key診断: 長さ={key_length}, BEGIN={has_begin}, END={has_end}")
-                
-                # 緩い早期バリデーション（基本的な構造のみチェック）
-                if not has_begin or not has_end or key_length < 100:
-                    error_msg = f'private_keyが不完全です。長さ:{key_length}, BEGIN:{has_begin}, END:{has_end}'
-                    logger.error(error_msg)
-                    raise ValueError(error_msg)
-
-                # Step 1: エスケープ文字の修正
-                if '\\n' in private_key:
-                    private_key = private_key.replace('\\n', '\n')
-                    logger.info("✅ エスケープ文字変換完了")
-                
-                # Step 2: Base64部分の抽出と修正
-                if '-----BEGIN PRIVATE KEY-----' in private_key and '-----END PRIVATE KEY-----' in private_key:
-                    lines = private_key.split('\n')
-                    fixed_lines = []
-                    
-                    for line in lines:
-                        if line and not line.startswith('-----'):
-                            # Base64文字列のパディング修正
-                            missing_padding = len(line) % 4
-                            if missing_padding:
-                                line += '=' * (4 - missing_padding)
-                                logger.info(f"✅ Base64パディング追加: {4 - missing_padding}文字")
-                            
-                            # Base64文字列の妥当性チェック
-                            try:
-                                base64.b64decode(line, validate=True)
-                                logger.info(f"✅ Base64行妥当性確認: {len(line)}文字")
-                            except Exception as e:
-                                logger.warning(f"⚠️ Base64行エラー: {len(line)}文字, エラー: {e}")
-                                # 無効文字を削除
-                                line = re.sub(r'[^A-Za-z0-9+/=]', '', line)
-                                # 再パディング
-                                missing_padding = len(line) % 4
-                                if missing_padding:
-                                    line += '=' * (4 - missing_padding)
-                                logger.info(f"🔧 Base64行修正後: {len(line)}文字")
-                        
-                        fixed_lines.append(line)
-                    
-                    fixed_private_key = '\n'.join(fixed_lines)
-                    fixed_info['private_key'] = fixed_private_key
-                    logger.info("✅ Private key Base64修正完了")
-                
-                # Step 3: 全体的なBase64検証
-                try:
-                    test_credentials = service_account.Credentials.from_service_account_info(fixed_info)
-                    logger.info("✅ 修正後認証情報検証成功")
-                except Exception as e:
-                    logger.error(f"❌ 修正後認証情報検証失敗: {e}")
-                    raise
-                    
-            except Exception as e:
-                logger.error(f"❌ Private key修正エラー: {e}")
-                raise
-        
-        return fixed_info
     
     def validate_audio_file(self, audio_path: str) -> bool:
         """

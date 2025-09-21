@@ -120,38 +120,11 @@ def main():
                 # フラット形式でサービスアカウント情報を構築（private_key修正版）
                 private_key_raw = st.secrets["gcp_service_account_private_key"]
                 
-                # private_keyの改行文字を正しく処理（Base64エラー対策強化版）
-                import base64
-                
+                # シンプルなprivate_key処理（成功時と同じ）
                 if "\\n" in private_key_raw:
-                    # エスケープされた改行文字を実際の改行文字に変換
                     private_key_formatted = private_key_raw.replace("\\n", "\n")
-                    debug_info.append("Private key処理: エスケープ文字変換実行")
                 else:
                     private_key_formatted = private_key_raw
-                    debug_info.append("Private key処理: エスケープ文字変換スキップ")
-                
-                # Base64パディング修正（緊急対策）
-                def fix_base64_padding(data):
-                    """Base64文字列のパディングを修正"""
-                    if isinstance(data, str):
-                        # パディングを追加
-                        missing_padding = len(data) % 4
-                        if missing_padding:
-                            data += '=' * (4 - missing_padding)
-                            debug_info.append(f"Base64パディング追加: {4 - missing_padding}文字")
-                    return data
-                
-                # private_keyの部分をチェック（Base64部分のみ）
-                if "-----BEGIN PRIVATE KEY-----" in private_key_formatted:
-                    lines = private_key_formatted.split('\n')
-                    fixed_lines = []
-                    for line in lines:
-                        if line and not line.startswith('-----'):
-                            line = fix_base64_padding(line)
-                        fixed_lines.append(line)
-                    private_key_formatted = '\n'.join(fixed_lines)
-                    debug_info.append("Private key Base64部分パディング修正完了")
                 
                 return {
                     "type": st.secrets["gcp_service_account_type"],
@@ -184,34 +157,11 @@ def main():
                 
                 credentials_exists = all(field in gcp_service_account for field in required_fields)
                 
-                # private_keyの改行文字処理（セクション形式でも適用・Base64対策強化版）
+                # シンプルなprivate_key処理（セクション形式も成功時と同じ）
                 if credentials_exists and "private_key" in gcp_service_account:
                     private_key_raw = gcp_service_account["private_key"]
-                    
-                    # エスケープ文字変換
                     if "\\n" in private_key_raw:
-                        private_key_formatted = private_key_raw.replace("\\n", "\n")
-                        debug_info.append("セクション形式private_key: エスケープ文字変換実行 ✅")
-                    else:
-                        private_key_formatted = private_key_raw
-                        debug_info.append("セクション形式private_key: エスケープ文字変換スキップ")
-                    
-                    # Base64パディング修正（セクション形式）
-                    if "-----BEGIN PRIVATE KEY-----" in private_key_formatted:
-                        lines = private_key_formatted.split('\n')
-                        fixed_lines = []
-                        for line in lines:
-                            if line and not line.startswith('-----'):
-                                # パディング修正
-                                missing_padding = len(line) % 4
-                                if missing_padding:
-                                    line += '=' * (4 - missing_padding)
-                                    debug_info.append(f"セクション形式Base64パディング修正: {4 - missing_padding}文字追加")
-                            fixed_lines.append(line)
-                        private_key_formatted = '\n'.join(fixed_lines)
-                        debug_info.append("セクション形式Base64パディング修正完了 ✅")
-                    
-                    gcp_service_account["private_key"] = private_key_formatted
+                        gcp_service_account["private_key"] = private_key_raw.replace("\\n", "\n")
                 
                 use_streamlit_secrets = True
                 if credentials_exists:
@@ -615,19 +565,8 @@ async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_
                 debug_info.append(f"エスケープ文字数: {pk_info.count('\\\\n')}")
                 debug_info.append(f"実改行数: {pk_info.count('\\n')}")
 
-                # private_keyの基本構造チェック（緩い検証）
-                has_begin = "-----BEGIN PRIVATE KEY-----" in pk_info
-                has_end = "-----END PRIVATE KEY-----" in pk_info
-                key_length = len(pk_info)
-                
-                debug_info.append(f"🔍 private_key診断: 長さ={key_length}, BEGIN={has_begin}, END={has_end}")
-                
-                if not has_begin or not has_end or key_length < 100:
-                    msg = f"❌ private_keyが不完全です。長さ:{key_length}, BEGIN:{has_begin}, END:{has_end}"
-                    debug_info.append(msg)
-                    st.error(msg)
-                    st.info("貼り付け方法の例: TOMLの複数行文字列（\"\"\" ... \"\"\"）か、\n を含む1行文字列で保存")
-                    raise Exception("不完全なprivate_keyを検出")
+                # シンプルなprivate_key情報表示（成功時と同じ）
+                debug_info.append(f"private_key長さ: {len(pk_info)}")
             
             try:
                 transcription_service = AudioTranscriptionService(
