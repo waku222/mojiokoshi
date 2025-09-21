@@ -55,15 +55,24 @@ def main():
     
     st.markdown("---")  # セパレーター追加
     
-    # 認証情報の確認（Streamlit Cloud対応）
+    # 認証情報の確認（Streamlit Cloud対応強化版）
     credentials_path = os.path.join(os.path.dirname(__file__), "..", "credentials", "service-account-key.json")
     
     # Streamlit Cloudの場合はsecretsから認証情報を取得
     try:
         gcp_service_account = st.secrets["gcp_service_account"]
-        credentials_exists = bool(gcp_service_account)
-        use_streamlit_secrets = True
-    except (KeyError, FileNotFoundError):
+        # より詳細な認証情報確認
+        if gcp_service_account and isinstance(gcp_service_account, dict):
+            required_fields = ["type", "project_id", "private_key", "client_email"]
+            credentials_exists = all(field in gcp_service_account for field in required_fields)
+            use_streamlit_secrets = True
+            if credentials_exists:
+                logger.info("Streamlit Secrets認証情報確認済み")
+        else:
+            credentials_exists = False
+            use_streamlit_secrets = True
+    except (KeyError, FileNotFoundError) as e:
+        logger.warning(f"Streamlit Secrets取得エラー: {e}")
         # ローカル環境の場合
         credentials_exists = os.path.exists(credentials_path)
         use_streamlit_secrets = False
@@ -76,10 +85,16 @@ def main():
         st.subheader("Google Cloud認証")
         if credentials_exists:
             st.success("✅ 認証設定済み")
-            st.info(f"認証ファイル: {os.path.basename(credentials_path)}")
+            if use_streamlit_secrets:
+                st.info("🔐 Streamlit Secrets使用中")
+            else:
+                st.info(f"📁 認証ファイル: {os.path.basename(credentials_path)}")
         else:
-            st.error("❌ 認証ファイルが見つかりません")
-            st.error(f"以下の場所に配置してください:\n`{credentials_path}`")
+            st.error("❌ サービスアカウントキーファイルが見つかりません")
+            if use_streamlit_secrets:
+                st.error("**管理者へ**: Streamlit CloudのSecretsでgcp_service_accountを設定してください")
+            else:
+                st.error(f"**管理者へ**: 以下の場所に配置してください:\n`{credentials_path}`")
         
         # GCSバケット名（Streamlit Cloud対応）
         try:
@@ -392,8 +407,15 @@ def check_company_access():
         .login-title {
             text-align: center;
             font-size: 2rem;
-            margin-bottom: 1rem;
+            margin-bottom: 0.5rem;
             color: white;
+        }
+        .login-subtitle {
+            text-align: center;
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: #ff6b6b;
+            font-weight: bold;
         }
         .stTextInput > div > div > input {
             background-color: rgba(255, 255, 255, 0.1);
@@ -408,8 +430,15 @@ def check_company_access():
         
         with col2:
             st.markdown('<div class="login-container">', unsafe_allow_html=True)
-            st.markdown('<h2 class="login-title">🔐 社内専用アクセス</h2>', unsafe_allow_html=True)
-            st.markdown("**AI文字起こしサービス**")
+            
+            # タイトル画像をログイン画面にも表示
+            title_image_path = os.path.join(os.path.dirname(__file__), "assets", "title_wizard.png")
+            if os.path.exists(title_image_path):
+                st.image(title_image_path, width=200, caption="")
+            
+            st.markdown('<h1 class="login-title">🎤 AI文字起こしサービス</h1>', unsafe_allow_html=True)
+            st.markdown('<h3 class="login-subtitle">（テスト版）</h3>', unsafe_allow_html=True)
+            st.markdown("**🔐 社内専用アクセス**")
             st.markdown("---")
             
             # アクセスキー入力
