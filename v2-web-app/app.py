@@ -311,11 +311,11 @@ COMPANY_ACCESS_KEY = "tatsujiro25"''', language="toml")
         )
         
         if uploaded_file is not None:
-        # ファイル情報表示
-        file_size_mb = len(uploaded_file.getvalue()) / (1024 * 1024)
-        is_video = uploaded_file.name.lower().endswith(('.mp4', '.avi', '.mov', '.mkv', '.wmv', '.webm'))
-        
-        if is_video and not VIDEO_PROCESSING_AVAILABLE:
+            # ファイル情報表示
+            file_size_mb = len(uploaded_file.getvalue()) / (1024 * 1024)
+            is_video = uploaded_file.name.lower().endswith(('.mp4', '.avi', '.mov', '.mkv', '.wmv', '.webm'))
+            
+            if is_video and not VIDEO_PROCESSING_AVAILABLE:
             st.error("❌ 動画ファイルが選択されましたが、動画処理機能は現在利用できません。音声ファイルを選択してください。")
             return
         
