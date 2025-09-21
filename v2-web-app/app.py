@@ -157,7 +157,7 @@ def main():
                 debug_info.append("フラット形式での認証情報構築成功 ✅")
             else:
                 credentials_exists = False
-        use_streamlit_secrets = True
+                use_streamlit_secrets = True
                 debug_info.append("フラット形式キーも不足 ❌")
     except (KeyError, FileNotFoundError) as e:
         logger.warning(f"Streamlit Secrets取得エラー: {e}")
