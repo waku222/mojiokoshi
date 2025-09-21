@@ -72,7 +72,33 @@ def main():
         available_secrets = list(st.secrets.keys())
         debug_info.append(f"利用可能なSecretsキー: {available_secrets}")
         
-        # セクション形式とフラット形式の両方に対応
+        # セクション形式とフラット形式の両方に対応（統一版）
+        def try_flat_format():
+            """フラット形式での認証情報構築を試行"""
+            flat_keys = [
+                "gcp_service_account_type",
+                "gcp_service_account_project_id", 
+                "gcp_service_account_private_key",
+                "gcp_service_account_client_email"
+            ]
+            flat_exists = all(key in st.secrets for key in flat_keys)
+            
+            if flat_exists:
+                # フラット形式でサービスアカウント情報を構築
+                return {
+                    "type": st.secrets["gcp_service_account_type"],
+                    "project_id": st.secrets["gcp_service_account_project_id"],
+                    "private_key_id": st.secrets.get("gcp_service_account_private_key_id", ""),
+                    "private_key": st.secrets["gcp_service_account_private_key"],
+                    "client_email": st.secrets["gcp_service_account_client_email"],
+                    "client_id": st.secrets.get("gcp_service_account_client_id", ""),
+                    "auth_uri": st.secrets.get("gcp_service_account_auth_uri", ""),
+                    "token_uri": st.secrets.get("gcp_service_account_token_uri", ""),
+                    "auth_provider_x509_cert_url": st.secrets.get("gcp_service_account_auth_provider_x509_cert_url", ""),
+                    "client_x509_cert_url": st.secrets.get("gcp_service_account_client_x509_cert_url", "")
+                }
+            return None
+        
         try:
             # セクション形式を試行
             gcp_service_account = st.secrets["gcp_service_account"]
@@ -98,28 +124,9 @@ def main():
             else:
                 debug_info.append("gcp_service_accountが辞書形式ではない（フラット形式を試行）")
                 # フラット形式を試行
-                flat_keys = [
-                    "gcp_service_account_type",
-                    "gcp_service_account_project_id", 
-                    "gcp_service_account_private_key",
-                    "gcp_service_account_client_email"
-                ]
-                flat_exists = all(key in st.secrets for key in flat_keys)
-                
-                if flat_exists:
-                    # フラット形式でサービスアカウント情報を構築
-                    gcp_service_account = {
-                        "type": st.secrets["gcp_service_account_type"],
-                        "project_id": st.secrets["gcp_service_account_project_id"],
-                        "private_key_id": st.secrets.get("gcp_service_account_private_key_id", ""),
-                        "private_key": st.secrets["gcp_service_account_private_key"],
-                        "client_email": st.secrets["gcp_service_account_client_email"],
-                        "client_id": st.secrets.get("gcp_service_account_client_id", ""),
-                        "auth_uri": st.secrets.get("gcp_service_account_auth_uri", ""),
-                        "token_uri": st.secrets.get("gcp_service_account_token_uri", ""),
-                        "auth_provider_x509_cert_url": st.secrets.get("gcp_service_account_auth_provider_x509_cert_url", ""),
-                        "client_x509_cert_url": st.secrets.get("gcp_service_account_client_x509_cert_url", "")
-                    }
+                flat_account = try_flat_format()
+                if flat_account:
+                    gcp_service_account = flat_account
                     credentials_exists = True
                     use_streamlit_secrets = True
                     debug_info.append("フラット形式での認証情報構築成功 ✅")
@@ -130,28 +137,9 @@ def main():
         except KeyError:
             debug_info.append("セクション形式取得失敗 - フラット形式を試行")
             # フラット形式を試行
-            flat_keys = [
-                "gcp_service_account_type",
-                "gcp_service_account_project_id", 
-                "gcp_service_account_private_key",
-                "gcp_service_account_client_email"
-            ]
-            flat_exists = all(key in st.secrets for key in flat_keys)
-            
-            if flat_exists:
-                # フラット形式でサービスアカウント情報を構築
-                gcp_service_account = {
-                    "type": st.secrets["gcp_service_account_type"],
-                    "project_id": st.secrets["gcp_service_account_project_id"],
-                    "private_key_id": st.secrets.get("gcp_service_account_private_key_id", ""),
-                    "private_key": st.secrets["gcp_service_account_private_key"],
-                    "client_email": st.secrets["gcp_service_account_client_email"],
-                    "client_id": st.secrets.get("gcp_service_account_client_id", ""),
-                    "auth_uri": st.secrets.get("gcp_service_account_auth_uri", ""),
-                    "token_uri": st.secrets.get("gcp_service_account_token_uri", ""),
-                    "auth_provider_x509_cert_url": st.secrets.get("gcp_service_account_auth_provider_x509_cert_url", ""),
-                    "client_x509_cert_url": st.secrets.get("gcp_service_account_client_x509_cert_url", "")
-                }
+            flat_account = try_flat_format()
+            if flat_account:
+                gcp_service_account = flat_account
                 credentials_exists = True
                 use_streamlit_secrets = True
                 debug_info.append("フラット形式での認証情報構築成功 ✅")
