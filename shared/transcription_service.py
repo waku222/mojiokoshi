@@ -38,28 +38,52 @@ class AudioTranscriptionService:
         
         # 認証方法を決定（最小限のBase64修正付き）
         if service_account_info:
-            # 最小限のBase64パディング修正
+            # 詳細デバッグ付きBase64パディング修正
             if 'private_key' in service_account_info:
                 private_key = service_account_info['private_key']
+                logger.info(f"🔍 修正前private_key長さ: {len(private_key)}")
+                
                 lines = private_key.split('\n')
                 fixed_lines = []
+                problem_lines = []
                 
-                for line in lines:
+                for i, line in enumerate(lines):
                     if line and not line.startswith('-----'):
+                        original_len = len(line)
                         # Base64パディング修正（4の倍数にする）
                         missing_padding = len(line) % 4
                         if missing_padding:
-                            line += '=' * (4 - missing_padding)
+                            padding_needed = 4 - missing_padding
+                            line += '=' * padding_needed
+                            logger.info(f"📝 行{i}: {original_len}文字 → {len(line)}文字 (パディング{padding_needed}個追加)")
+                            problem_lines.append(f"行{i}: {original_len}→{len(line)}")
+                        elif original_len > 0:
+                            logger.info(f"✅ 行{i}: {original_len}文字 (修正不要)")
                     fixed_lines.append(line)
                 
                 service_account_info['private_key'] = '\n'.join(fixed_lines)
-                logger.info("✅ Base64パディング修正完了")
+                logger.info(f"✅ Base64パディング修正完了: {len(problem_lines)}行修正 {problem_lines}")
             
-            # Streamlit Secrets等からのJSONデータを使用
-            credentials = service_account.Credentials.from_service_account_info(service_account_info)
-            self.speech_client = speech.SpeechClient(credentials=credentials)
-            self.storage_client = storage.Client(credentials=credentials)
-            logger.info("✅ 認証成功")
+            # Streamlit Secrets等からのJSONデータを使用（詳細エラー付き）
+            try:
+                credentials = service_account.Credentials.from_service_account_info(service_account_info)
+                self.speech_client = speech.SpeechClient(credentials=credentials)
+                self.storage_client = storage.Client(credentials=credentials)
+                logger.info("✅ 認証成功")
+            except Exception as e:
+                logger.error(f"❌ 認証失敗詳細: {e}")
+                # Base64エラーの場合、private_keyの詳細情報を出力
+                if 'base64' in str(e).lower():
+                    pk = service_account_info.get('private_key', '')
+                    logger.error(f"🔍 エラー時private_key情報:")
+                    logger.error(f"   - 全長: {len(pk)}文字")
+                    logger.error(f"   - 行数: {len(pk.split('\\n'))}行")
+                    lines = pk.split('\\n')
+                    for i, line in enumerate(lines[:5]):  # 最初の5行だけ
+                        logger.error(f"   - 行{i}: '{line}' (長さ:{len(line)})")
+                    if len(lines) > 5:
+                        logger.error(f"   - ... (残り{len(lines)-5}行)")
+                raise
         elif service_account_path:
             # ファイルパスから認証情報を読み込み
             self.speech_client = speech.SpeechClient.from_service_account_file(service_account_path)
