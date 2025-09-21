@@ -564,6 +564,11 @@ async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_
     """非同期文字起こし処理"""
     
     try:
+        # セッションのデバッグ情報を取得（未初期化なら初期化）
+        if 'debug_info' not in st.session_state:
+            st.session_state.debug_info = []
+        debug_info = st.session_state.debug_info
+
         # ファイルタイプを判定
         file_extension = Path(input_file_path).suffix.lower()
         is_video = file_extension in ['.mp4', '.avi', '.mov', '.mkv', '.wmv', '.webm']
