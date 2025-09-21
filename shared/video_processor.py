@@ -24,6 +24,7 @@ except ImportError:
 try:
     from moviepy.editor import VideoFileClip
     MOVIEPY_AVAILABLE = True
+    logger.info("MoviePy import successful")
 except ImportError:
     MOVIEPY_AVAILABLE = False
     logger.warning("MoviePy not available - video processing disabled")
@@ -31,9 +32,19 @@ except ImportError:
 try:
     import ffmpeg
     FFMPEG_AVAILABLE = True
+    logger.info("FFmpeg import successful")
 except ImportError:
     FFMPEG_AVAILABLE = False
     logger.warning("FFmpeg not available - advanced video processing disabled")
+
+# imageio-ffmpeg の追加確認
+try:
+    import imageio_ffmpeg as iio_ffmpeg
+    IMAGEIO_FFMPEG_AVAILABLE = True
+    logger.info("imageio-ffmpeg available for MoviePy")
+except ImportError:
+    IMAGEIO_FFMPEG_AVAILABLE = False
+    logger.warning("imageio-ffmpeg not available")
 
 class VideoProcessor:
     """動画ファイル処理クラス"""
@@ -45,6 +56,13 @@ class VideoProcessor:
             '.mkv', '.webm', '.m4v', '.3gp', '.mts'
         }
         self.video_processing_available = MOVIEPY_AVAILABLE and CV2_AVAILABLE
+        
+        # 詳細な可用性情報をログ出力
+        logger.info(f"OpenCV available: {CV2_AVAILABLE}")
+        logger.info(f"MoviePy available: {MOVIEPY_AVAILABLE}")
+        logger.info(f"FFmpeg available: {FFMPEG_AVAILABLE}")
+        logger.info(f"imageio-ffmpeg available: {IMAGEIO_FFMPEG_AVAILABLE}")
+        logger.info(f"Video processing available: {self.video_processing_available}")
         
         if not self.video_processing_available:
             logger.warning("Video processing libraries not available. Audio-only mode enabled.")
