@@ -455,25 +455,29 @@ def check_company_access():
         <style>
         .login-container {
             max-width: 400px;
-            margin: 100px auto;
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin: 20px auto;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
         }
         .login-title {
             text-align: center;
-            font-size: 2rem;
-            margin-bottom: 0.5rem;
+            font-size: 1.8rem;
+            margin-bottom: 0.2rem;
             color: white;
         }
         .login-subtitle {
             text-align: center;
-            font-size: 1.2rem;
-            margin-bottom: 1rem;
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
             color: #ff6b6b;
             font-weight: bold;
+        }
+        .login-image {
+            text-align: center;
+            margin-bottom: 0.5rem;
         }
         .stTextInput > div > div > input {
             background-color: rgba(255, 255, 255, 0.1);
@@ -492,7 +496,9 @@ def check_company_access():
             # タイトル画像をログイン画面にも表示
             title_image_path = os.path.join(os.path.dirname(__file__), "assets", "title_wizard.png")
             if os.path.exists(title_image_path):
-                st.image(title_image_path, width=200, caption="")
+                st.markdown('<div class="login-image">', unsafe_allow_html=True)
+                st.image(title_image_path, width=180)
+                st.markdown('</div>', unsafe_allow_html=True)
             
             st.markdown('<h1 class="login-title">🎤 AI文字起こしサービス</h1>', unsafe_allow_html=True)
             st.markdown('<h3 class="login-subtitle">（テスト版）</h3>', unsafe_allow_html=True)
