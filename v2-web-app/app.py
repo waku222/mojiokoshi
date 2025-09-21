@@ -18,6 +18,10 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from shared.transcription_service import AudioTranscriptionService
 from shared.config import *
 
+# ログ設定（最初に定義）
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # 動画処理の条件付きインポート
 try:
     from shared.video_processor import VideoProcessor
@@ -32,10 +36,6 @@ except ImportError as e:
 except Exception as e:
     VIDEO_PROCESSING_AVAILABLE = False
     logger.warning(f"Video processor initialization failed: {e}")
-
-# ログ設定
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Streamlitページ設定
 st.set_page_config(
