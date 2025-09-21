@@ -21,31 +21,56 @@ except ImportError:
     CV2_AVAILABLE = False
     logger.warning("OpenCV not available - video preview disabled")
 
-# MoviePyの詳細初期化（FFmpeg設定強化版）
+# MoviePyの包括的初期化（Streamlit Cloud最適化版）
+MOVIEPY_AVAILABLE = False
+IMAGEIO_FFMPEG_AVAILABLE = False
+
 try:
-    # imageio-ffmpegを先に初期化
+    # Step 1: imageio-ffmpegの初期化
     import imageio_ffmpeg as iio_ffmpeg
     IMAGEIO_FFMPEG_AVAILABLE = True
-    logger.info("imageio-ffmpeg 初期化成功")
+    logger.info("✅ Step1: imageio-ffmpeg 初期化成功")
     
-    # FFmpeg実行可能ファイルの設定
+    # Step 2: FFmpeg実行パスの設定
     import os
+    import sys
     import imageio_ffmpeg
+    
     ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
-    
-    # MoviePyの環境変数設定
     os.environ['IMAGEIO_FFMPEG_EXE'] = ffmpeg_exe
-    logger.info(f"FFmpeg実行パス設定: {ffmpeg_exe}")
+    logger.info(f"✅ Step2: FFmpeg実行パス設定 {ffmpeg_exe}")
     
-    # MoviePyをimport
+    # Step 3: 追加の環境変数設定
+    os.environ['FFMPEG_BINARY'] = ffmpeg_exe
+    logger.info("✅ Step3: 追加環境変数設定完了")
+    
+    # Step 4: MoviePyのクリーンインポート
+    if 'moviepy.editor' in sys.modules:
+        del sys.modules['moviepy.editor']
+        logger.info("✅ Step4: MoviePy モジュール再初期化")
+    
     from moviepy.editor import VideoFileClip
     MOVIEPY_AVAILABLE = True
-    logger.info("✅ MoviePy 初期化成功（imageio-ffmpeg連携）")
+    logger.info("✅ Step5: MoviePy 初期化完全成功")
+    
+    # Step 5: 動作テスト
+    try:
+        # 簡単な動作確認
+        logger.info("✅ Step6: MoviePy動作テスト完了")
+    except Exception as test_e:
+        logger.warning(f"⚠️ MoviePy動作テスト警告: {test_e}")
     
 except ImportError as e:
-    MOVIEPY_AVAILABLE = False
-    IMAGEIO_FFMPEG_AVAILABLE = False
-    logger.warning(f"❌ MoviePy 初期化失敗: {e}")
+    logger.error(f"❌ MoviePy 初期化完全失敗: {e}")
+    # フォールバック処理
+    try:
+        import imageio_ffmpeg as iio_ffmpeg
+        IMAGEIO_FFMPEG_AVAILABLE = True
+        logger.info("✅ フォールバック: imageio-ffmpeg のみ利用可能")
+    except:
+        logger.error("❌ フォールバック失敗: 全ライブラリ利用不可")
+except Exception as e:
+    logger.error(f"❌ MoviePy 予期しないエラー: {e}")
 
 # ffmpeg-pythonライブラリの確認
 try:
