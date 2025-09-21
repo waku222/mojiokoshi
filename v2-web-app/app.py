@@ -65,30 +65,93 @@ def main():
         available_secrets = list(st.secrets.keys())
         debug_info.append(f"利用可能なSecretsキー: {available_secrets}")
         
-        gcp_service_account = st.secrets["gcp_service_account"]
-        debug_info.append("gcp_service_account取得成功")
-        
-        # より詳細な認証情報確認
-        if gcp_service_account and isinstance(gcp_service_account, dict):
-            required_fields = ["type", "project_id", "private_key", "client_email"]
-            existing_fields = [field for field in required_fields if field in gcp_service_account]
-            missing_fields = [field for field in required_fields if field not in gcp_service_account]
+        # セクション形式とフラット形式の両方に対応
+        try:
+            # セクション形式を試行
+            gcp_service_account = st.secrets["gcp_service_account"]
+            debug_info.append("gcp_service_account取得成功（セクション形式）")
             
-            debug_info.append(f"存在するフィールド: {existing_fields}")
-            if missing_fields:
-                debug_info.append(f"不足フィールド: {missing_fields}")
-            
-            credentials_exists = all(field in gcp_service_account for field in required_fields)
-            use_streamlit_secrets = True
-            if credentials_exists:
-                logger.info("Streamlit Secrets認証情報確認済み")
-                debug_info.append("認証情報: 全フィールド確認済み ✅")
+            # より詳細な認証情報確認
+            if gcp_service_account and isinstance(gcp_service_account, dict):
+                required_fields = ["type", "project_id", "private_key", "client_email"]
+                existing_fields = [field for field in required_fields if field in gcp_service_account]
+                missing_fields = [field for field in required_fields if field not in gcp_service_account]
+                
+                debug_info.append(f"存在するフィールド: {existing_fields}")
+                if missing_fields:
+                    debug_info.append(f"不足フィールド: {missing_fields}")
+                
+                credentials_exists = all(field in gcp_service_account for field in required_fields)
+                use_streamlit_secrets = True
+                if credentials_exists:
+                    logger.info("Streamlit Secrets認証情報確認済み")
+                    debug_info.append("認証情報: 全フィールド確認済み ✅")
+                else:
+                    debug_info.append("認証情報: 必須フィールド不足 ❌")
             else:
-                debug_info.append("認証情報: 必須フィールド不足 ❌")
-        else:
-            credentials_exists = False
-            use_streamlit_secrets = True
-            debug_info.append("gcp_service_accountが辞書形式ではない ❌")
+                debug_info.append("gcp_service_accountが辞書形式ではない（フラット形式を試行）")
+                # フラット形式を試行
+                flat_keys = [
+                    "gcp_service_account_type",
+                    "gcp_service_account_project_id", 
+                    "gcp_service_account_private_key",
+                    "gcp_service_account_client_email"
+                ]
+                flat_exists = all(key in st.secrets for key in flat_keys)
+                
+                if flat_exists:
+                    # フラット形式でサービスアカウント情報を構築
+                    gcp_service_account = {
+                        "type": st.secrets["gcp_service_account_type"],
+                        "project_id": st.secrets["gcp_service_account_project_id"],
+                        "private_key_id": st.secrets.get("gcp_service_account_private_key_id", ""),
+                        "private_key": st.secrets["gcp_service_account_private_key"],
+                        "client_email": st.secrets["gcp_service_account_client_email"],
+                        "client_id": st.secrets.get("gcp_service_account_client_id", ""),
+                        "auth_uri": st.secrets.get("gcp_service_account_auth_uri", ""),
+                        "token_uri": st.secrets.get("gcp_service_account_token_uri", ""),
+                        "auth_provider_x509_cert_url": st.secrets.get("gcp_service_account_auth_provider_x509_cert_url", ""),
+                        "client_x509_cert_url": st.secrets.get("gcp_service_account_client_x509_cert_url", "")
+                    }
+                    credentials_exists = True
+                    use_streamlit_secrets = True
+                    debug_info.append("フラット形式での認証情報構築成功 ✅")
+                else:
+                    credentials_exists = False
+                    use_streamlit_secrets = True
+                    debug_info.append("フラット形式キーも不足 ❌")
+        except KeyError:
+            debug_info.append("セクション形式取得失敗 - フラット形式を試行")
+            # フラット形式を試行
+            flat_keys = [
+                "gcp_service_account_type",
+                "gcp_service_account_project_id", 
+                "gcp_service_account_private_key",
+                "gcp_service_account_client_email"
+            ]
+            flat_exists = all(key in st.secrets for key in flat_keys)
+            
+            if flat_exists:
+                # フラット形式でサービスアカウント情報を構築
+                gcp_service_account = {
+                    "type": st.secrets["gcp_service_account_type"],
+                    "project_id": st.secrets["gcp_service_account_project_id"],
+                    "private_key_id": st.secrets.get("gcp_service_account_private_key_id", ""),
+                    "private_key": st.secrets["gcp_service_account_private_key"],
+                    "client_email": st.secrets["gcp_service_account_client_email"],
+                    "client_id": st.secrets.get("gcp_service_account_client_id", ""),
+                    "auth_uri": st.secrets.get("gcp_service_account_auth_uri", ""),
+                    "token_uri": st.secrets.get("gcp_service_account_token_uri", ""),
+                    "auth_provider_x509_cert_url": st.secrets.get("gcp_service_account_auth_provider_x509_cert_url", ""),
+                    "client_x509_cert_url": st.secrets.get("gcp_service_account_client_x509_cert_url", "")
+                }
+                credentials_exists = True
+                use_streamlit_secrets = True
+                debug_info.append("フラット形式での認証情報構築成功 ✅")
+            else:
+                credentials_exists = False
+                use_streamlit_secrets = True
+                debug_info.append("フラット形式キーも不足 ❌")
     except (KeyError, FileNotFoundError) as e:
         logger.warning(f"Streamlit Secrets取得エラー: {e}")
         debug_info.append(f"Secrets取得エラー: {str(e)}")
@@ -136,8 +199,28 @@ def main():
                         st.cache_resource.clear()
                         st.rerun()
                     
-                    st.markdown("### 📋 設定用TOML内容（コピー用）")
-                    st.code('''[gcp_service_account]
+                    st.markdown("### 📋 設定用TOML内容（フラット形式推奨）")
+                    st.markdown("**セクション形式で問題がある場合は、以下のフラット形式をお試しください：**")
+                    
+                    with st.expander("🔹 フラット形式（推奨）", expanded=True):
+                        st.code('''# Google Cloud Service Account (フラット形式)
+gcp_service_account_type = "service_account"
+gcp_service_account_project_id = "gen-lang-client-0653854891"
+gcp_service_account_private_key_id = "27887a0412001d91181210877e3c88d14977e65f"
+gcp_service_account_private_key = "-----BEGIN PRIVATE KEY-----\\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDO4Mio1jkcZviX\\nQiC8awDknwUHxIPD173ElFKBXVt17XsJjQMrDAmlFHk23Y1yM7uKtzkONjWNSqJ9\\ne8JWC1aE/mEegPzPkdUNOGFYiEJJ7fGpL826QWm5vGDbiWnV1zY1q/SFSeoyLacF\\nXzzum4kqEIIdxBNMMNiWR1/zmqd6AZ/zDSkOwLVxlcfzygTw9loSyS/Q1ofY5Vzw\\nUUPGoEufOWVy6sItxMc9ikEGkkB5a4kACmuLdYWa/17TC6FlLLkT76pvHEZD57sb\\n+vR58/frhaS+ZoPUMyIjGDxUAgcILctyogEjVE7/+FQvj632c2KZ0YgrX8Hh53Gx\\nZBg/ZvbXAgMBAAECggEAL6F/cagI9CodGC5IfTkhtoGKVfR/5epZLdZ8fH5zHV61\\nEkjeLt4RpmllUyWFeILCrjhrMYN3pvVFHiENaGQp4mrzD2PhUSUhaW7OsuSEZqMb\\nHbn84uJGplXh8wnbTTnEqGzT2pBfFHiAWPNJgyJaXU35t0K6srMYWtlKFTtJTgSB\\nv2jchhNjDwrSPkGCEkhhn9KKudxOo45rnrzR2qYIJkBRVvLDLO+/O1COPO0LRTEl\\ny7czEVSzEwxchvH3Rrnq964yBIoWtZ0cbgd4+6XIOgyOqA0FT0RsTgBlFLeQcdaT\\naArzAOxMrlMXlqpPynckveyZz+msiFrViV207+w16QKBgQDr0+fQdpVN4BmSX9BQ\\ngNs+TeyI+OL1V9JvlGHhntmLnaxjKLipwsDrArybp15UAoNiecMN98C4DraDz/M+\\npW38d+1YSsG9PLyOQWT9ZsxZF3ELIU+nzeipxc0sK8nYc1F5tPAVWF9axPTxkYen\\n2IjWBk5Na4T2Kflli8VeqRQDJQKBgQDgkvIKwWYAuua3jaJkaa9gPYV0QtYyFraL\\nWAaD14d0C2IXhtjv24BAjHKDIFbJFhvUQjpslTheDTxb2MG4OpwL5fpiykeDHKaR\\ndbl94ndhNfYD7eMKCA9VffmOmlJkRaVhFbEOFVBOQi096DEBijHAfbSa4xW2DWpT\\nQ9lsE2lvSwKBgQDDHKl4sgPJUJYXoqopUNMT80i18qVkM2rp4iwxjUmT17oeuDxA\\nR99xEOyXI5xJiWLGgNM+pTKPlayv1cb8l8Yt0dNO71rnhG7Ei5pQhVKgi2J9wOu0\\nfAn5HKwp1XjEWnSYa3kPT/RklvvJOYyw89gSq1jxePmi6QtsVn3PWbgy+QKBgBXM\\nDXQfy1+8xFICjEWEwIHt1rsvFY0tCTDDLXa0f7AyvqWb8Ahv3KXnO+IgTGweGjti\\n5jrNzPfL/xTHGB5iiezZuJDII2LFcCFkNMnUJlQoIaXF/ChoGdzpakR+FAspe2DN\\n8y5zwSSnZa7Bj6gfmq6dRN9XtS7DZJOKXVsRE0W7AoGBAJAe/2NLkynvIWfC2GSO\\npw48K5wGjOvBrRQ7F1U33g++uWBd8TTllIdo5alra0sgySYeWJdRD9FIknR20M2c\\nkLiKUbsnsBLxckCUuFfMeaWZTNQMwvOBUUaE1kTlGdpe25lOY1igzEKMgP9BXqoA\\nRZHgmigY14wDQpxLG1Ex1EuM\\n-----END PRIVATE KEY-----\\n"
+gcp_service_account_client_email = "mojiokoshi@gen-lang-client-0653854891.iam.gserviceaccount.com"
+gcp_service_account_client_id = "105257418930370464852"
+gcp_service_account_auth_uri = "https://accounts.google.com/o/oauth2/auth"
+gcp_service_account_token_uri = "https://oauth2.googleapis.com/token"
+gcp_service_account_auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
+gcp_service_account_client_x509_cert_url = "https://www.googleapis.com/robot/v1/metadata/x509/mojiokoshi%40gen-lang-client-0653854891.iam.gserviceaccount.com"
+
+# その他の設定
+GCS_BUCKET_NAME = "250728transcription-bucket"
+COMPANY_ACCESS_KEY = "tatsujiro25"''', language="toml")
+                    
+                    with st.expander("🔸 セクション形式（代替）"):
+                        st.code('''[gcp_service_account]
 type = "service_account"
 project_id = "gen-lang-client-0653854891"
 private_key_id = "27887a0412001d91181210877e3c88d14977e65f"
