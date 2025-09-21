@@ -614,24 +614,44 @@ def check_company_access():
         st.session_state.login_attempts = 0
     
     if not st.session_state.authenticated:
-        # 認証画面のスタイル設定
+        # 認証画面のスタイル設定（紫色ブロック削除版）
         st.markdown("""
         <style>
+        /* Streamlitデフォルト要素を非表示 */
+        .stProgress > div > div > div > div {
+            background-color: transparent !important;
+        }
+        
+        /* メインヘッダーのStreamlitロゴを非表示 */
+        .stApp > header {
+            background-color: transparent !important;
+        }
+        
+        /* 上部の不要なパディングを削除 */
+        .main > div {
+            padding-top: 1rem !important;
+        }
+        
+        /* ログインコンテナ（コンパクト版） */
         .login-container {
             max-width: 400px;
-            margin: 20px auto;
-            padding: 1.5rem;
+            margin: 0 auto;
+            padding: 1.2rem;
             border-radius: 12px;
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
         }
+        
+        /* タイトルスタイル */
         .login-title {
             text-align: center;
             font-size: 1.8rem;
             margin-bottom: 0.2rem;
             color: white;
         }
+        
+        /* サブタイトルスタイル */
         .login-subtitle {
             text-align: center;
             font-size: 1rem;
@@ -639,29 +659,48 @@ def check_company_access():
             color: #ff6b6b;
             font-weight: bold;
         }
+        
+        /* 画像センター寄せ（強化版） */
         .login-image {
             text-align: center;
-            margin-bottom: 0.5rem;
+            margin: 0.5rem 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
+        
+        /* 画像自体のスタイル */
+        .login-image img {
+            display: block;
+            margin: 0 auto;
+        }
+        
+        /* テキスト入力フィールド */
         .stTextInput > div > div > input {
             background-color: rgba(255, 255, 255, 0.1);
             color: white;
             border: 1px solid rgba(255, 255, 255, 0.3);
         }
+        
+        /* ページ全体の上部マージン削除 */
+        .block-container {
+            padding-top: 1rem !important;
+            padding-bottom: 1rem !important;
+        }
         </style>
         """, unsafe_allow_html=True)
         
-        # 中央寄せのログインフォーム
+        # 中央寄せのログインフォーム（コンパクト版）
         col1, col2, col3 = st.columns([1, 2, 1])
         
         with col2:
             st.markdown('<div class="login-container">', unsafe_allow_html=True)
             
-            # タイトル画像をログイン画面にも表示
+            # タイトル画像をログイン画面にセンター表示
             title_image_path = os.path.join(os.path.dirname(__file__), "assets", "title_wizard.png")
             if os.path.exists(title_image_path):
                 st.markdown('<div class="login-image">', unsafe_allow_html=True)
-                st.image(title_image_path, width=180)
+                st.image(title_image_path, width=160)  # サイズを若干縮小してコンパクトに
                 st.markdown('</div>', unsafe_allow_html=True)
             
             st.markdown('<h1 class="login-title">🎤 AI文字起こしサービス</h1>', unsafe_allow_html=True)
