@@ -77,12 +77,32 @@ class VideoProcessor:
         }
         self.video_processing_available = MOVIEPY_AVAILABLE and CV2_AVAILABLE
         
-        # 詳細な可用性情報をログ出力
-        logger.info(f"OpenCV available: {CV2_AVAILABLE}")
-        logger.info(f"MoviePy available: {MOVIEPY_AVAILABLE}")
-        logger.info(f"FFmpeg available: {FFMPEG_AVAILABLE}")
-        logger.info(f"imageio-ffmpeg available: {IMAGEIO_FFMPEG_AVAILABLE}")
-        logger.info(f"Video processing available: {self.video_processing_available}")
+        # 詳細な可用性情報をログ出力（強化版）
+        logger.info("=" * 50)
+        logger.info("🎬 動画処理ライブラリ状況詳細")
+        logger.info("=" * 50)
+        logger.info(f"✅ OpenCV available: {CV2_AVAILABLE}")
+        logger.info(f"✅ MoviePy available: {MOVIEPY_AVAILABLE}")
+        logger.info(f"✅ FFmpeg (ffmpeg-python) available: {FFMPEG_AVAILABLE}")
+        logger.info(f"✅ imageio-ffmpeg available: {IMAGEIO_FFMPEG_AVAILABLE}")
+        logger.info(f"🎯 Video processing available: {self.video_processing_available}")
+        logger.info("=" * 50)
+        
+        # 不足ライブラリの詳細診断
+        if not self.video_processing_available:
+            missing = []
+            if not MOVIEPY_AVAILABLE:
+                missing.append("MoviePy")
+            if not CV2_AVAILABLE:
+                missing.append("OpenCV")
+            logger.warning(f"❌ 動画処理無効: {', '.join(missing)} が不足")
+        
+        # FFmpeg環境変数の確認
+        import os
+        if 'IMAGEIO_FFMPEG_EXE' in os.environ:
+            logger.info(f"🔧 IMAGEIO_FFMPEG_EXE: {os.environ['IMAGEIO_FFMPEG_EXE']}")
+        else:
+            logger.warning("⚠️ IMAGEIO_FFMPEG_EXE 未設定")
         
         if not self.video_processing_available:
             logger.warning("Video processing libraries not available. Audio-only mode enabled.")
