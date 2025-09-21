@@ -558,12 +558,13 @@ async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_
         logger.error(f"非同期文字起こしエラー: {str(e)}")
         return None
 
-def calculate_optimal_chunk_length(uploaded_file):
+def calculate_optimal_chunk_length(uploaded_file, is_video: bool = False):
     """
     アップロードされたファイルに基づいて最適なチャンク長を自動計算
     
     Args:
         uploaded_file: Streamlitアップロードファイルオブジェクト
+        is_video: 動画ファイルかどうか
         
     Returns:
         int: チャンク長（ミリ秒）
@@ -571,20 +572,29 @@ def calculate_optimal_chunk_length(uploaded_file):
     # ファイルサイズを取得（MB単位）
     file_size_mb = len(uploaded_file.getvalue()) / (1024 * 1024)
     
-    # ファイルサイズに基づいて最適なチャンク長を決定（メモリ効率重視版）
-    if file_size_mb < 50:
-        # 小さなファイル: 5分チャンク（高品質、メモリ効率向上）
-        chunk_length_ms = 5 * 60 * 1000  # 300,000ms
-        logger.info(f"小ファイル検出 ({file_size_mb:.1f}MB) -> 5分チャンク")
-    elif file_size_mb < 150:
-        # 中程度のファイル: 3分チャンク（バランス）
-        chunk_length_ms = 3 * 60 * 1000   # 180,000ms
-        logger.info(f"中ファイル検出 ({file_size_mb:.1f}MB) -> 3分チャンク")
+    # 動画の場合は、より慎重なチャンク設定
+    if is_video:
+        if file_size_mb < 100:
+            chunk_length_ms = 3 * 60 * 1000  # 3分チャンク
+            logger.info(f"小動画検出 ({file_size_mb:.1f}MB) -> 3分チャンク")
+        elif file_size_mb < 300:
+            chunk_length_ms = 2 * 60 * 1000  # 2分チャンク
+            logger.info(f"中動画検出 ({file_size_mb:.1f}MB) -> 2分チャンク")
+        else:
+            chunk_length_ms = 90 * 1000      # 1.5分チャンク
+            logger.warning(f"大動画検出 ({file_size_mb:.1f}MB) -> 1.5分チャンク（メモリ制限対策）")
     else:
-        # 大きなファイル: 2分チャンク（メモリ制限対策）
-        chunk_length_ms = 2 * 60 * 1000   # 120,000ms
-        logger.warning(f"大ファイル検出 ({file_size_mb:.1f}MB) -> 2分チャンク（メモリ制限対策）")
-        logger.warning("⚠️ 大容量ファイルはStreamlit Cloudでの処理制限があります")
+        # 音声ファイルの場合（既存ロジック）
+        if file_size_mb < 50:
+            chunk_length_ms = 5 * 60 * 1000  # 300,000ms
+            logger.info(f"小ファイル検出 ({file_size_mb:.1f}MB) -> 5分チャンク")
+        elif file_size_mb < 150:
+            chunk_length_ms = 3 * 60 * 1000   # 180,000ms
+            logger.info(f"中ファイル検出 ({file_size_mb:.1f}MB) -> 3分チャンク")
+        else:
+            chunk_length_ms = 2 * 60 * 1000   # 120,000ms
+            logger.warning(f"大ファイル検出 ({file_size_mb:.1f}MB) -> 2分チャンク（メモリ制限対策）")
+            logger.warning("⚠️ 大容量ファイルはStreamlit Cloudでの処理制限があります")
     
     return chunk_length_ms
 
