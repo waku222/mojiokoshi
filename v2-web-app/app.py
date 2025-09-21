@@ -22,20 +22,41 @@ from shared.config import *
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# 動画処理の条件付きインポート
+# 動画処理の条件付きインポート（詳細診断版）
 try:
     from shared.video_processor import VideoProcessor
+    logger.info("VideoProcessor インポート成功")
+    
     # 実際のライブラリ可用性もチェック
     video_processor = VideoProcessor()
+    logger.info("VideoProcessor インスタンス化成功")
+    
     VIDEO_PROCESSING_AVAILABLE = video_processor.video_processing_available
-    if not VIDEO_PROCESSING_AVAILABLE:
-        logger.warning("Video processing libraries (moviepy/opencv) not available")
+    if VIDEO_PROCESSING_AVAILABLE:
+        logger.info("✅ 動画処理機能: 利用可能")
+    else:
+        logger.warning("⚠️ 動画処理機能: ライブラリ不足のため無効")
+        # 具体的にどのライブラリが不足しているかを確認
+        try:
+            import cv2
+            logger.info("OpenCV: 利用可能")
+        except ImportError:
+            logger.warning("OpenCV: 利用不可")
+            
+        try:
+            from moviepy.editor import VideoFileClip
+            logger.info("MoviePy: 利用可能")
+        except ImportError:
+            logger.warning("MoviePy: 利用不可")
+            
 except ImportError as e:
     VIDEO_PROCESSING_AVAILABLE = False
-    logger.warning(f"Video processing not available: {e}")
+    logger.warning(f"VideoProcessor インポートエラー: {e}")
 except Exception as e:
     VIDEO_PROCESSING_AVAILABLE = False
-    logger.warning(f"Video processor initialization failed: {e}")
+    logger.error(f"VideoProcessor 初期化失敗: {type(e).__name__}: {str(e)}")
+    import traceback
+    logger.error(f"詳細トレースバック: {traceback.format_exc()}")
 
 # Streamlitページ設定
 st.set_page_config(
@@ -398,7 +419,8 @@ def process_transcription(uploaded_file, credentials_path, gcs_bucket, chunk_len
             )
         else:
             st.session_state.processing_status = "エラー"
-            st.error("文字起こし処理に失敗しました")
+            st.error("❌ 文字起こし処理に失敗しました")
+            st.error("💡 **管理者向け**: ログを確認して詳細な原因を特定してください")
         
         # 一時ファイルを削除
         os.unlink(input_file_path)
@@ -406,8 +428,20 @@ def process_transcription(uploaded_file, credentials_path, gcs_bucket, chunk_len
         
     except Exception as e:
         st.session_state.processing_status = "エラー"
-        st.error(f"エラーが発生しました: {str(e)}")
-        logger.error(f"文字起こし処理エラー: {str(e)}")
+        st.error(f"❌ **処理エラー**: {str(e)}")
+        
+        # 詳細なエラー情報を表示
+        with st.expander("🔍 **エラー詳細情報（管理者用）**"):
+            st.error(f"**エラータイプ**: {type(e).__name__}")
+            st.error(f"**エラーメッセージ**: {str(e)}")
+            st.error(f"**ファイル**: {uploaded_file.name}")
+            st.error(f"**ファイルサイズ**: {len(uploaded_file.getvalue()) / (1024 * 1024):.2f}MB")
+            st.error(f"**認証方式**: {'Streamlit Secrets' if use_streamlit_secrets else 'ローカルファイル'}")
+            st.error(f"**GCSバケット**: {gcs_bucket}")
+            
+        logger.error(f"文字起こし処理エラー: {type(e).__name__}: {str(e)}")
+        import traceback
+        logger.error(f"詳細トレースバック: {traceback.format_exc()}")
 
 async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_length_ms, progress_bar, status_text, use_streamlit_secrets=False):
     """非同期文字起こし処理"""
@@ -480,7 +514,12 @@ async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_
             
             return result
         else:
-            raise Exception("文字起こし処理に失敗しました")
+            logger.error("音声ファイル処理結果が空です")
+            logger.error(f"処理対象: {input_file_path}")
+            logger.error(f"ファイル存在確認: {os.path.exists(input_file_path)}")
+            if os.path.exists(input_file_path):
+                logger.error(f"ファイルサイズ: {os.path.getsize(input_file_path)} bytes")
+            raise Exception(f"文字起こし処理に失敗しました（結果が空）- ファイル: {os.path.basename(input_file_path)}")
         
     except Exception as e:
         logger.error(f"非同期文字起こしエラー: {str(e)}")
