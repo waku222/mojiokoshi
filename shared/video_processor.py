@@ -10,6 +10,9 @@ from pathlib import Path
 from typing import Optional, Tuple
 import asyncio
 
+# ログ設定（条件付きインポート前に定義）
+logger = logging.getLogger(__name__)
+
 # 動画処理関連（条件付きインポート）
 try:
     import cv2
@@ -31,9 +34,6 @@ try:
 except ImportError:
     FFMPEG_AVAILABLE = False
     logger.warning("FFmpeg not available - advanced video processing disabled")
-
-# ログ設定
-logger = logging.getLogger(__name__)
 
 class VideoProcessor:
     """動画ファイル処理クラス"""
