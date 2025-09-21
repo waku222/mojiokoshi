@@ -96,7 +96,10 @@ def main():
     credentials_path = os.path.join(os.path.dirname(__file__), "..", "credentials", "service-account-key.json")
     
     # Streamlit Cloudの場合はsecretsから認証情報を取得
-    debug_info = []
+    # デバッグ情報はセッションに保持して他関数からも参照できるようにする
+    if 'debug_info' not in st.session_state:
+        st.session_state.debug_info = []
+    debug_info = st.session_state.debug_info
     try:
         # デバッグ: 利用可能なSecretsキー確認
         available_secrets = list(st.secrets.keys())
@@ -545,6 +548,13 @@ def process_transcription(uploaded_file, credentials_path, gcs_bucket, chunk_len
             st.error(f"**ファイルサイズ**: {len(uploaded_file.getvalue()) / (1024 * 1024):.2f}MB")
             st.error(f"**認証方式**: {'Streamlit Secrets' if use_streamlit_secrets else 'ローカルファイル'}")
             st.error(f"**GCSバケット**: {gcs_bucket}")
+
+            # セッションに溜めたデバッグ情報も合わせて出力
+            if 'debug_info' in st.session_state and st.session_state.debug_info:
+                st.markdown("---")
+                st.markdown("**追加デバッグ情報**")
+                for info in st.session_state.debug_info:
+                    st.text(info)
             
         logger.error(f"文字起こし処理エラー: {type(e).__name__}: {str(e)}")
         import traceback
@@ -654,6 +664,9 @@ async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_
         
     except Exception as e:
         logger.error(f"非同期文字起こしエラー: {str(e)}")
+        # エラー時にもデバッグ情報を保持
+        if 'debug_info' in st.session_state:
+            st.session_state.debug_info.append(f"❌ 非同期エラー: {type(e).__name__}: {str(e)}")
         return None
 
 def calculate_optimal_chunk_length(uploaded_file, is_video: bool = False):
