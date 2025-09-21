@@ -7,10 +7,12 @@ google-cloud-speech>=2.21.0
 google-cloud-storage>=2.10.0
 google-auth>=2.22.0
 
-# 音声・動画処理関連（Streamlit Cloud最適化）
+# 音声処理関連（基本機能）
 pydub>=0.25.1
-opencv-python-headless>=4.8.0
-moviepy>=1.0.3
+
+# 動画処理関連（段階的対応予定）
+# opencv-python-headless>=4.8.0  # 一時的に無効化
+# moviepy>=1.0.3  # 一時的に無効化
 
 # Python 3.13互換性対応（条件付きインストール）
 audioop-lts; python_version >= '3.13'

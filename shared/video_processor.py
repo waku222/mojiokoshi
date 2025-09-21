@@ -10,10 +10,27 @@ from pathlib import Path
 from typing import Optional, Tuple
 import asyncio
 
-# 動画処理関連
-import cv2
-from moviepy.editor import VideoFileClip
-import ffmpeg
+# 動画処理関連（条件付きインポート）
+try:
+    import cv2
+    CV2_AVAILABLE = True
+except ImportError:
+    CV2_AVAILABLE = False
+    logger.warning("OpenCV not available - video preview disabled")
+
+try:
+    from moviepy.editor import VideoFileClip
+    MOVIEPY_AVAILABLE = True
+except ImportError:
+    MOVIEPY_AVAILABLE = False
+    logger.warning("MoviePy not available - video processing disabled")
+
+try:
+    import ffmpeg
+    FFMPEG_AVAILABLE = True
+except ImportError:
+    FFMPEG_AVAILABLE = False
+    logger.warning("FFmpeg not available - advanced video processing disabled")
 
 # ログ設定
 logger = logging.getLogger(__name__)
@@ -27,6 +44,10 @@ class VideoProcessor:
             '.mp4', '.avi', '.mov', '.wmv', '.flv', 
             '.mkv', '.webm', '.m4v', '.3gp', '.mts'
         }
+        self.video_processing_available = MOVIEPY_AVAILABLE and CV2_AVAILABLE
+        
+        if not self.video_processing_available:
+            logger.warning("Video processing libraries not available. Audio-only mode enabled.")
     
     def validate_video_file(self, video_path: str) -> bool:
         """
@@ -181,6 +202,10 @@ class VideoProcessor:
             str: 抽出された音声ファイルのパス（一時ファイル）
         """
         try:
+            # 動画処理ライブラリが利用できない場合
+            if not self.video_processing_available:
+                raise Exception("動画処理ライブラリが利用できません。音声ファイルをご利用ください。")
+            
             # 入力ファイル検証
             if not self.validate_video_file(video_path):
                 raise Exception("入力動画ファイルの検証に失敗")

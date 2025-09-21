@@ -16,8 +16,15 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from shared.transcription_service import AudioTranscriptionService
-from shared.video_processor import VideoProcessor
 from shared.config import *
+
+# 動画処理の条件付きインポート
+try:
+    from shared.video_processor import VideoProcessor
+    VIDEO_PROCESSING_AVAILABLE = True
+except ImportError as e:
+    VIDEO_PROCESSING_AVAILABLE = False
+    logger.warning(f"Video processing not available: {e}")
 
 # ログ設定
 logging.basicConfig(level=logging.INFO)
@@ -115,18 +122,32 @@ def main():
     with col1:
         st.header("📁 ファイルアップロード")
         
+        # 動画処理の可用性をチェック
+        if VIDEO_PROCESSING_AVAILABLE:
+            file_types = ["wav", "mp3", "flac", "m4a", "ogg", "mp4", "avi", "mov", "mkv", "wmv", "webm"]
+            help_text = "音声ファイル・動画ファイル対応 | 最大ファイルサイズ: 500MB"
+        else:
+            file_types = ["wav", "mp3", "flac", "m4a", "ogg"]
+            help_text = "音声ファイルのみ対応（動画処理は現在利用不可）| 最大ファイルサイズ: 500MB"
+            st.warning("⚠️ 動画処理機能は現在利用できません。音声ファイルをご利用ください。")
+        
         # ファイルアップロード
         uploaded_file = st.file_uploader(
-            "音声ファイルまたは動画ファイルを選択してください",
-            type=["wav", "mp3", "flac", "m4a", "ogg", "mp4", "avi", "mov", "mkv", "wmv", "webm"],
-            help="最大ファイルサイズ: 500MB"
+            "音声ファイルを選択してください" if not VIDEO_PROCESSING_AVAILABLE else "音声ファイルまたは動画ファイルを選択してください",
+            type=file_types,
+            help=help_text
         )
         
         if uploaded_file is not None:
             # ファイル情報表示
             file_size_mb = len(uploaded_file.getvalue()) / (1024 * 1024)
-            file_type = "動画" if uploaded_file.name.lower().endswith(('.mp4', '.avi', '.mov', '.mkv', '.wmv', '.webm')) else "音声"
+            is_video = uploaded_file.name.lower().endswith(('.mp4', '.avi', '.mov', '.mkv', '.wmv', '.webm'))
             
+            if is_video and not VIDEO_PROCESSING_AVAILABLE:
+                st.error("❌ 動画ファイルが選択されましたが、動画処理機能は現在利用できません。音声ファイルを選択してください。")
+                return
+            
+            file_type = "動画" if is_video else "音声"
             st.info(f"**ファイル情報**  \nファイル名: {uploaded_file.name}  \nタイプ: {file_type}ファイル  \nサイズ: {file_size_mb:.2f}MB")
             
             # 処理ボタン
@@ -249,6 +270,9 @@ async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_
         
         # 動画ファイルの場合は音声抽出
         if is_video:
+            if not VIDEO_PROCESSING_AVAILABLE:
+                raise Exception("動画処理機能が利用できません")
+            
             status_text.text("🎬 動画から音声を抽出中...")
             progress_bar.progress(20)
             
