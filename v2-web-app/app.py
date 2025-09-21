@@ -21,10 +21,17 @@ from shared.config import *
 # 動画処理の条件付きインポート
 try:
     from shared.video_processor import VideoProcessor
-    VIDEO_PROCESSING_AVAILABLE = True
+    # 実際のライブラリ可用性もチェック
+    video_processor = VideoProcessor()
+    VIDEO_PROCESSING_AVAILABLE = video_processor.video_processing_available
+    if not VIDEO_PROCESSING_AVAILABLE:
+        logger.warning("Video processing libraries (moviepy/opencv) not available")
 except ImportError as e:
     VIDEO_PROCESSING_AVAILABLE = False
     logger.warning(f"Video processing not available: {e}")
+except Exception as e:
+    VIDEO_PROCESSING_AVAILABLE = False
+    logger.warning(f"Video processor initialization failed: {e}")
 
 # ログ設定
 logging.basicConfig(level=logging.INFO)
@@ -68,7 +75,7 @@ def main():
         # セクション形式とフラット形式の両方に対応
         try:
             # セクション形式を試行
-            gcp_service_account = st.secrets["gcp_service_account"]
+        gcp_service_account = st.secrets["gcp_service_account"]
             debug_info.append("gcp_service_account取得成功（セクション形式）")
             
             # より詳細な認証情報確認
@@ -150,7 +157,7 @@ def main():
                 debug_info.append("フラット形式での認証情報構築成功 ✅")
             else:
                 credentials_exists = False
-                use_streamlit_secrets = True
+        use_streamlit_secrets = True
                 debug_info.append("フラット形式キーも不足 ❌")
     except (KeyError, FileNotFoundError) as e:
         logger.warning(f"Streamlit Secrets取得エラー: {e}")
@@ -427,12 +434,15 @@ async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_
         # 動画ファイルの場合は音声抽出
         if is_video:
             if not VIDEO_PROCESSING_AVAILABLE:
-                raise Exception("動画処理機能が利用できません")
+                raise Exception("動画処理機能が利用できません。必要なライブラリ（moviepy/opencv）がインストールされていない可能性があります。")
             
             status_text.text("🎬 動画から音声を抽出中...")
             progress_bar.progress(20)
             
+            # 追加の安全チェック
             video_processor = VideoProcessor()
+            if not video_processor.video_processing_available:
+                raise Exception("動画処理ライブラリが実行時に利用できません（moviepy/opencv未インストール）")
             audio_file_path = await video_processor.process_video_for_transcription(input_file_path)
             
             if not audio_file_path:
