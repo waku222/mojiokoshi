@@ -4,7 +4,7 @@
 """
 
 # Google Cloud Speech-to-Text用のサービスアカウントキーファイルパス
-SERVICE_ACCOUNT_PATH = "./credentials/service-account-key.json"
+SERVICE_ACCOUNT_PATH = "../credentials/service-account-key.json"
 
 # Google Cloud Storage バケット名（長時間音声処理用）
 GCS_BUCKET_NAME = "250728transcription-bucket"

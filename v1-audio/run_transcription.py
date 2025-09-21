@@ -15,6 +15,10 @@ from pathlib import Path
 from speech import AudioTranscriptionService
 from config import *
 
+# 絶対パスに変換（スクリプトファイル基準）
+SCRIPT_DIR = Path(__file__).parent
+ABSOLUTE_SERVICE_ACCOUNT_PATH = SCRIPT_DIR / SERVICE_ACCOUNT_PATH
+
 def parse_arguments():
     """コマンドライン引数を解析"""
     parser = argparse.ArgumentParser(
@@ -68,8 +72,8 @@ async def main():
     print("=" * 60)
     
     # 設定ファイルの検証
-    if not Path(SERVICE_ACCOUNT_PATH).exists():
-        print(f"エラー: サービスアカウントファイルが見つかりません: {SERVICE_ACCOUNT_PATH}")
+    if not ABSOLUTE_SERVICE_ACCOUNT_PATH.exists():
+        print(f"エラー: サービスアカウントファイルが見つかりません: {ABSOLUTE_SERVICE_ACCOUNT_PATH}")
         print("config.pyでSERVICE_ACCOUNT_PATHを正しく設定してください。")
         sys.exit(1)
     
@@ -82,7 +86,7 @@ async def main():
         # サービス初期化
         print("サービスを初期化中...")
         service = AudioTranscriptionService(
-            service_account_path=SERVICE_ACCOUNT_PATH,
+            service_account_path=str(ABSOLUTE_SERVICE_ACCOUNT_PATH),
             gcs_bucket_name=GCS_BUCKET_NAME
         )
         

@@ -87,3 +87,4 @@ Desktop.ini
 
 # 文字起こし結果ファイル
 transcription_*.txt
+streamlit-secrets-config.toml

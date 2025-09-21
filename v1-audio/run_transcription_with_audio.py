@@ -14,6 +14,10 @@ from pathlib import Path
 from speech import AudioTranscriptionService
 from config import SERVICE_ACCOUNT_PATH, GCS_BUCKET_NAME, CHUNK_LENGTH_MS
 
+# 絶対パスに変換（スクリプトファイル基準）
+SCRIPT_DIR = Path(__file__).parent
+ABSOLUTE_SERVICE_ACCOUNT_PATH = SCRIPT_DIR / SERVICE_ACCOUNT_PATH
+
 def select_audio_file():
     """音声ファイル選択ダイアログを表示"""
     
@@ -187,8 +191,8 @@ async def main():
     print("=" * 60)
     
     # 設定ファイルの検証
-    if not Path(SERVICE_ACCOUNT_PATH).exists():
-        print(f"エラー: サービスアカウントファイルが見つかりません: {SERVICE_ACCOUNT_PATH}")
+    if not ABSOLUTE_SERVICE_ACCOUNT_PATH.exists():
+        print(f"エラー: サービスアカウントファイルが見つかりません: {ABSOLUTE_SERVICE_ACCOUNT_PATH}")
         print("config.pyでSERVICE_ACCOUNT_PATHを正しく設定してください。")
         sys.exit(1)
     
@@ -196,7 +200,7 @@ async def main():
         # サービス初期化
         print("サービスを初期化中...")
         service = AudioTranscriptionService(
-            service_account_path=SERVICE_ACCOUNT_PATH,
+            service_account_path=str(ABSOLUTE_SERVICE_ACCOUNT_PATH),
             gcs_bucket_name=GCS_BUCKET_NAME
         )
         
