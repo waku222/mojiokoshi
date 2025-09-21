@@ -36,8 +36,25 @@ class AudioTranscriptionService:
         self.gcs_bucket_name = gcs_bucket_name
         self.service_account_info = service_account_info
         
-        # 認証方法を決定（シンプル版）
+        # 認証方法を決定（最小限のBase64修正付き）
         if service_account_info:
+            # 最小限のBase64パディング修正
+            if 'private_key' in service_account_info:
+                private_key = service_account_info['private_key']
+                lines = private_key.split('\n')
+                fixed_lines = []
+                
+                for line in lines:
+                    if line and not line.startswith('-----'):
+                        # Base64パディング修正（4の倍数にする）
+                        missing_padding = len(line) % 4
+                        if missing_padding:
+                            line += '=' * (4 - missing_padding)
+                    fixed_lines.append(line)
+                
+                service_account_info['private_key'] = '\n'.join(fixed_lines)
+                logger.info("✅ Base64パディング修正完了")
+            
             # Streamlit Secrets等からのJSONデータを使用
             credentials = service_account.Credentials.from_service_account_info(service_account_info)
             self.speech_client = speech.SpeechClient(credentials=credentials)
