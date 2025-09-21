@@ -538,19 +538,20 @@ def calculate_optimal_chunk_length(uploaded_file):
     # ファイルサイズを取得（MB単位）
     file_size_mb = len(uploaded_file.getvalue()) / (1024 * 1024)
     
-    # ファイルサイズに基づいて最適なチャンク長を決定
+    # ファイルサイズに基づいて最適なチャンク長を決定（メモリ効率重視版）
     if file_size_mb < 50:
-        # 小さなファイル: 10分チャンク（高品質、少ないAPI呼び出し）
-        chunk_length_ms = 10 * 60 * 1000  # 600,000ms
-        logger.info(f"小ファイル検出 ({file_size_mb:.1f}MB) -> 10分チャンク")
-    elif file_size_mb < 200:
-        # 中程度のファイル: 5分チャンク（バランス）
-        chunk_length_ms = 5 * 60 * 1000   # 300,000ms
-        logger.info(f"中ファイル検出 ({file_size_mb:.1f}MB) -> 5分チャンク")
-    else:
-        # 大きなファイル: 3分チャンク（メモリ効率重視）
+        # 小さなファイル: 5分チャンク（高品質、メモリ効率向上）
+        chunk_length_ms = 5 * 60 * 1000  # 300,000ms
+        logger.info(f"小ファイル検出 ({file_size_mb:.1f}MB) -> 5分チャンク")
+    elif file_size_mb < 150:
+        # 中程度のファイル: 3分チャンク（バランス）
         chunk_length_ms = 3 * 60 * 1000   # 180,000ms
-        logger.info(f"大ファイル検出 ({file_size_mb:.1f}MB) -> 3分チャンク")
+        logger.info(f"中ファイル検出 ({file_size_mb:.1f}MB) -> 3分チャンク")
+    else:
+        # 大きなファイル: 2分チャンク（メモリ制限対策）
+        chunk_length_ms = 2 * 60 * 1000   # 120,000ms
+        logger.warning(f"大ファイル検出 ({file_size_mb:.1f}MB) -> 2分チャンク（メモリ制限対策）")
+        logger.warning("⚠️ 大容量ファイルはStreamlit Cloudでの処理制限があります")
     
     return chunk_length_ms
 
