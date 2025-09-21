@@ -657,21 +657,21 @@ def check_company_access():
             display: none !important;
         }
         
-        /* ログインコンテナ（コンパクト版） */
+        /* ログインコンテナ（横幅拡大版） */
         .login-container {
-            max-width: 400px;
+            max-width: 800px;
             margin: 0 auto;
-            padding: 1.2rem;
+            padding: 2rem;
             border-radius: 12px;
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
         }
         
-        /* タイトルスタイル（横並び対応） */
+        /* タイトルスタイル（横幅拡大対応） */
         .login-title {
             text-align: left;
-            font-size: 1.6rem;
+            font-size: 2.2rem;
             margin-bottom: 0.2rem;
             color: white;
             font-weight: bold;
@@ -763,8 +763,8 @@ def check_company_access():
         </style>
         """, unsafe_allow_html=True)
         
-        # 中央寄せのログインフォーム（コンパクト版）
-        col1, col2, col3 = st.columns([1, 2, 1])
+        # 中央寄せのログインフォーム（横幅拡大版）
+        col1, col2, col3 = st.columns([0.5, 3, 0.5])
         
         with col2:
             st.markdown('<div class="login-container">', unsafe_allow_html=True)
@@ -772,12 +772,12 @@ def check_company_access():
             # 魔法使い画像とタイトルを横並び表示
             title_image_path = os.path.join(os.path.dirname(__file__), "assets", "title_wizard.png")
             if os.path.exists(title_image_path):
-                # 画像とタイトルのカラム分割
-                img_col, title_col = st.columns([1, 2])
+                # 画像とタイトルのカラム分割（横幅拡大対応）
+                img_col, title_col = st.columns([1, 3])
                 
                 with img_col:
                     st.markdown('<div class="login-image-left">', unsafe_allow_html=True)
-                    st.image(title_image_path, width=120)
+                    st.image(title_image_path, width=150)
                     st.markdown('</div>', unsafe_allow_html=True)
                 
                 with title_col:
