@@ -108,17 +108,34 @@ def main():
         # セクション形式とフラット形式の両方に対応（統一版）
         def try_flat_format():
             """フラット形式での認証情報構築を試行"""
-            flat_keys = [
+            flat_keys_basic = [
                 "gcp_service_account_type",
                 "gcp_service_account_project_id", 
-                "gcp_service_account_private_key",
                 "gcp_service_account_client_email"
             ]
-            flat_exists = all(key in st.secrets for key in flat_keys)
+            # 通常形式または分割形式をチェック
+            has_regular_key = "gcp_service_account_private_key" in st.secrets
+            has_split_key = "gcp_service_account_private_key_part1" in st.secrets
+            flat_exists = all(key in st.secrets for key in flat_keys_basic) and (has_regular_key or has_split_key)
             
             if flat_exists:
-                # フラット形式でサービスアカウント情報を構築（private_key修正版）
-                private_key_raw = st.secrets["gcp_service_account_private_key"]
+                # private_keyの結合処理（分割対応）
+                if "gcp_service_account_private_key" in st.secrets:
+                    private_key_raw = st.secrets["gcp_service_account_private_key"]
+                elif "gcp_service_account_private_key_part1" in st.secrets:
+                    # 分割されたprivate_keyを結合
+                    parts = []
+                    for i in range(1, 10):  # part1～part9まで探す
+                        part_key = f"gcp_service_account_private_key_part{i}"
+                        if part_key in st.secrets:
+                            parts.append(st.secrets[part_key])
+                        else:
+                            break
+                    private_key_raw = "".join(parts)
+                    debug_info.append(f"分割private_key結合: {len(parts)}パート → {len(private_key_raw)}文字")
+                else:
+                    debug_info.append("private_key（通常・分割）共に見つからない")
+                    return None
                 
                 # private_keyの改行文字を正しく処理（Base64エラー対策強化版）
                 import base64
