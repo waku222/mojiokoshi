@@ -384,7 +384,7 @@ def check_company_access():
         COMPANY_ACCESS_KEY = st.secrets["COMPANY_ACCESS_KEY"]
     except:
         # フォールバック用のデフォルトキー（本番環境では削除推奨）
-        COMPANY_ACCESS_KEY = "TJ2025-MojiOkoshi-SecureKey-Internal"
+        COMPANY_ACCESS_KEY = "tatsujiro25"
     
     # セッション状態の初期化
     if 'authenticated' not in st.session_state:
