@@ -615,9 +615,15 @@ async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_
                 debug_info.append(f"エスケープ文字数: {pk_info.count('\\\\n')}")
                 debug_info.append(f"実改行数: {pk_info.count('\\n')}")
 
-                # 不完全な鍵の早期検出（Cloudでの貼り付け不備対策）
-                if ("-----BEGIN PRIVATE KEY-----" not in pk_info) or ("-----END PRIVATE KEY-----" not in pk_info) or (len(pk_info) < 300):
-                    msg = "❌ private_keyが不完全です。GoogleのサービスアカウントJSONからprivate_key全体をそのまま貼り付けてください。"
+                # private_keyの基本構造チェック（緩い検証）
+                has_begin = "-----BEGIN PRIVATE KEY-----" in pk_info
+                has_end = "-----END PRIVATE KEY-----" in pk_info
+                key_length = len(pk_info)
+                
+                debug_info.append(f"🔍 private_key診断: 長さ={key_length}, BEGIN={has_begin}, END={has_end}")
+                
+                if not has_begin or not has_end or key_length < 100:
+                    msg = f"❌ private_keyが不完全です。長さ:{key_length}, BEGIN:{has_begin}, END:{has_end}"
                     debug_info.append(msg)
                     st.error(msg)
                     st.info("貼り付け方法の例: TOMLの複数行文字列（\"\"\" ... \"\"\"）か、\n を含む1行文字列で保存")
