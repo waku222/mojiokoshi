@@ -614,6 +614,14 @@ async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_
                 debug_info.append(f"private_key終了: ...{pk_info[-50:]}")
                 debug_info.append(f"エスケープ文字数: {pk_info.count('\\\\n')}")
                 debug_info.append(f"実改行数: {pk_info.count('\\n')}")
+
+                # 不完全な鍵の早期検出（Cloudでの貼り付け不備対策）
+                if ("-----BEGIN PRIVATE KEY-----" not in pk_info) or ("-----END PRIVATE KEY-----" not in pk_info) or (len(pk_info) < 300):
+                    msg = "❌ private_keyが不完全です。GoogleのサービスアカウントJSONからprivate_key全体をそのまま貼り付けてください。"
+                    debug_info.append(msg)
+                    st.error(msg)
+                    st.info("貼り付け方法の例: TOMLの複数行文字列（\"\"\" ... \"\"\"）か、\n を含む1行文字列で保存")
+                    raise Exception("不完全なprivate_keyを検出")
             
             try:
                 transcription_service = AudioTranscriptionService(

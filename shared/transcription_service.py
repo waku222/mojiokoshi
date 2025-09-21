@@ -75,6 +75,10 @@ class AudioTranscriptionService:
             logger.info(f"Private key修正開始（長さ: {len(private_key)}）")
             
             try:
+                # 早期バリデーション: BEGIN/ENDと十分な長さがあるか
+                if ('-----BEGIN PRIVATE KEY-----' not in private_key) or ('-----END PRIVATE KEY-----' not in private_key) or len(private_key) < 300:
+                    raise ValueError('private_keyが不完全です（BEGIN/ENDヘッダー不足または長さ不足）。Secretsに正しい鍵を貼り付けてください。')
+
                 # Step 1: エスケープ文字の修正
                 if '\\n' in private_key:
                     private_key = private_key.replace('\\n', '\n')
