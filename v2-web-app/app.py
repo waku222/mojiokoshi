@@ -59,23 +59,43 @@ def main():
     credentials_path = os.path.join(os.path.dirname(__file__), "..", "credentials", "service-account-key.json")
     
     # Streamlit Cloudの場合はsecretsから認証情報を取得
+    debug_info = []
     try:
+        # デバッグ: 利用可能なSecretsキー確認
+        available_secrets = list(st.secrets.keys())
+        debug_info.append(f"利用可能なSecretsキー: {available_secrets}")
+        
         gcp_service_account = st.secrets["gcp_service_account"]
+        debug_info.append("gcp_service_account取得成功")
+        
         # より詳細な認証情報確認
         if gcp_service_account and isinstance(gcp_service_account, dict):
             required_fields = ["type", "project_id", "private_key", "client_email"]
+            existing_fields = [field for field in required_fields if field in gcp_service_account]
+            missing_fields = [field for field in required_fields if field not in gcp_service_account]
+            
+            debug_info.append(f"存在するフィールド: {existing_fields}")
+            if missing_fields:
+                debug_info.append(f"不足フィールド: {missing_fields}")
+            
             credentials_exists = all(field in gcp_service_account for field in required_fields)
             use_streamlit_secrets = True
             if credentials_exists:
                 logger.info("Streamlit Secrets認証情報確認済み")
+                debug_info.append("認証情報: 全フィールド確認済み ✅")
+            else:
+                debug_info.append("認証情報: 必須フィールド不足 ❌")
         else:
             credentials_exists = False
             use_streamlit_secrets = True
+            debug_info.append("gcp_service_accountが辞書形式ではない ❌")
     except (KeyError, FileNotFoundError) as e:
         logger.warning(f"Streamlit Secrets取得エラー: {e}")
+        debug_info.append(f"Secrets取得エラー: {str(e)}")
         # ローカル環境の場合
         credentials_exists = os.path.exists(credentials_path)
         use_streamlit_secrets = False
+        debug_info.append("ローカル環境モードに切り替え")
     
     # サイドバー設定
     with st.sidebar:
@@ -93,6 +113,44 @@ def main():
             st.error("❌ サービスアカウントキーファイルが見つかりません")
             if use_streamlit_secrets:
                 st.error("**管理者へ**: Streamlit CloudのSecretsでgcp_service_accountを設定してください")
+                
+                # デバッグ情報表示
+                with st.expander("🔍 詳細デバッグ情報（管理者用）"):
+                    for info in debug_info:
+                        st.text(info)
+                    
+                    st.markdown("### ❗ 確認すべき項目")
+                    st.markdown("""
+                    1. **Streamlit Cloud Settings → Secrets** でSecretsが設定済みか？
+                    2. **[gcp_service_account]** セクションが存在するか？
+                    3. **必須フィールド** が全て含まれているか？
+                       - type, project_id, private_key, client_email
+                    4. **TOML形式** が正しいか？
+                    5. **Save** ボタンを押してアプリが再起動したか？
+                    """)
+                    
+                    st.markdown("### 🔧 緊急対処法")
+                    if st.button("🔄 アプリ強制再起動", help="Secrets設定後にアプリを強制的に再起動します"):
+                        st.info("⏳ アプリを再起動中...")
+                        st.cache_data.clear()
+                        st.cache_resource.clear()
+                        st.rerun()
+                    
+                    st.markdown("### 📋 設定用TOML内容（コピー用）")
+                    st.code('''[gcp_service_account]
+type = "service_account"
+project_id = "gen-lang-client-0653854891"
+private_key_id = "27887a0412001d91181210877e3c88d14977e65f"
+private_key = "-----BEGIN PRIVATE KEY-----\\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDO4Mio1jkcZviX\\nQiC8awDknwUHxIPD173ElFKBXVt17XsJjQMrDAmlFHk23Y1yM7uKtzkONjWNSqJ9\\ne8JWC1aE/mEegPzPkdUNOGFYiEJJ7fGpL826QWm5vGDbiWnV1zY1q/SFSeoyLacF\\nXzzum4kqEIIdxBNMMNiWR1/zmqd6AZ/zDSkOwLVxlcfzygTw9loSyS/Q1ofY5Vzw\\nUUPGoEufOWVy6sItxMc9ikEGkkB5a4kACmuLdYWa/17TC6FlLLkT76pvHEZD57sb\\n+vR58/frhaS+ZoPUMyIjGDxUAgcILctyogEjVE7/+FQvj632c2KZ0YgrX8Hh53Gx\\nZBg/ZvbXAgMBAAECggEAL6F/cagI9CodGC5IfTkhtoGKVfR/5epZLdZ8fH5zHV61\\nEkjeLt4RpmllUyWFeILCrjhrMYN3pvVFHiENaGQp4mrzD2PhUSUhaW7OsuSEZqMb\\nHbn84uJGplXh8wnbTTnEqGzT2pBfFHiAWPNJgyJaXU35t0K6srMYWtlKFTtJTgSB\\nv2jchhNjDwrSPkGCEkhhn9KKudxOo45rnrzR2qYIJkBRVvLDLO+/O1COPO0LRTEl\\ny7czEVSzEwxchvH3Rrnq964yBIoWtZ0cbgd4+6XIOgyOqA0FT0RsTgBlFLeQcdaT\\naArzAOxMrlMXlqpPynckveyZz+msiFrViV207+w16QKBgQDr0+fQdpVN4BmSX9BQ\\ngNs+TeyI+OL1V9JvlGHhntmLnaxjKLipwsDrArybp15UAoNiecMN98C4DraDz/M+\\npW38d+1YSsG9PLyOQWT9ZsxZF3ELIU+nzeipxc0sK8nYc1F5tPAVWF9axPTxkYen\\n2IjWBk5Na4T2Kflli8VeqRQDJQKBgQDgkvIKwWYAuua3jaJkaa9gPYV0QtYyFraL\\nWAaD14d0C2IXhtjv24BAjHKDIFbJFhvUQjpslTheDTxb2MG4OpwL5fpiykeDHKaR\\ndbl94ndhNfYD7eMKCA9VffmOmlJkRaVhFbEOFVBOQi096DEBijHAfbSa4xW2DWpT\\nQ9lsE2lvSwKBgQDDHKl4sgPJUJYXoqopUNMT80i18qVkM2rp4iwxjUmT17oeuDxA\\nR99xEOyXI5xJiWLGgNM+pTKPlayv1cb8l8Yt0dNO71rnhG7Ei5pQhVKgi2J9wOu0\\nfAn5HKwp1XjEWnSYa3kPT/RklvvJOYyw89gSq1jxePmi6QtsVn3PWbgy+QKBgBXM\\nDXQfy1+8xFICjEWEwIHt1rsvFY0tCTDDLXa0f7AyvqWb8Ahv3KXnO+IgTGweGjti\\n5jrNzPfL/xTHGB5iiezZuJDII2LFcCFkNMnUJlQoIaXF/ChoGdzpakR+FAspe2DN\\n8y5zwSSnZa7Bj6gfmq6dRN9XtS7DZJOKXVsRE0W7AoGBAJAe/2NLkynvIWfC2GSO\\npw48K5wGjOvBrRQ7F1U33g++uWBd8TTllIdo5alra0sgySYeWJdRD9FIknR20M2c\\nkLiKUbsnsBLxckCUuFfMeaWZTNQMwvOBUUaE1kTlGdpe25lOY1igzEKMgP9BXqoA\\nRZHgmigY14wDQpxLG1Ex1EuM\\n-----END PRIVATE KEY-----\\n"
+client_email = "mojiokoshi@gen-lang-client-0653854891.iam.gserviceaccount.com"
+client_id = "105257418930370464852"
+auth_uri = "https://accounts.google.com/o/oauth2/auth"
+token_uri = "https://oauth2.googleapis.com/token"
+auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
+client_x509_cert_url = "https://www.googleapis.com/robot/v1/metadata/x509/mojiokoshi%40gen-lang-client-0653854891.iam.gserviceaccount.com"
+
+GCS_BUCKET_NAME = "250728transcription-bucket"
+COMPANY_ACCESS_KEY = "tatsujiro25"''', language="toml")
             else:
                 st.error(f"**管理者へ**: 以下の場所に配置してください:\n`{credentials_path}`")
         
