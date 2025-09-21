@@ -95,95 +95,21 @@ def main():
     # 認証情報の確認（Streamlit Cloud対応強化版）
     credentials_path = os.path.join(os.path.dirname(__file__), "..", "credentials", "service-account-key.json")
     
-    # Streamlit Cloudの場合はsecretsから認証情報を取得
+    # 🚨 緊急対応: Base64エラー回避のためStreamlit Secrets処理を完全無効化
     debug_info = []
-    try:
-        # デバッグ: 利用可能なSecretsキー確認
-        available_secrets = list(st.secrets.keys())
-        debug_info.append(f"利用可能なSecretsキー: {available_secrets}")
-        
-        # セクション形式とフラット形式の両方に対応（統一版）
-        def try_flat_format():
-            """フラット形式での認証情報構築を試行"""
-            flat_keys = [
-                "gcp_service_account_type",
-                "gcp_service_account_project_id", 
-                "gcp_service_account_private_key",
-                "gcp_service_account_client_email"
-            ]
-            flat_exists = all(key in st.secrets for key in flat_keys)
-            
-            if flat_exists:
-                # フラット形式でサービスアカウント情報を構築
-                return {
-                    "type": st.secrets["gcp_service_account_type"],
-                    "project_id": st.secrets["gcp_service_account_project_id"],
-                    "private_key_id": st.secrets.get("gcp_service_account_private_key_id", ""),
-                    "private_key": st.secrets["gcp_service_account_private_key"],
-                    "client_email": st.secrets["gcp_service_account_client_email"],
-                    "client_id": st.secrets.get("gcp_service_account_client_id", ""),
-                    "auth_uri": st.secrets.get("gcp_service_account_auth_uri", ""),
-                    "token_uri": st.secrets.get("gcp_service_account_token_uri", ""),
-                    "auth_provider_x509_cert_url": st.secrets.get("gcp_service_account_auth_provider_x509_cert_url", ""),
-                    "client_x509_cert_url": st.secrets.get("gcp_service_account_client_x509_cert_url", "")
-                }
-            return None
-        
-        try:
-            # セクション形式を試行
-            gcp_service_account = st.secrets["gcp_service_account"]
-            debug_info.append("gcp_service_account取得成功（セクション形式）")
-            
-            # より詳細な認証情報確認
-            if gcp_service_account and isinstance(gcp_service_account, dict):
-                required_fields = ["type", "project_id", "private_key", "client_email"]
-                existing_fields = [field for field in required_fields if field in gcp_service_account]
-                missing_fields = [field for field in required_fields if field not in gcp_service_account]
-                
-                debug_info.append(f"存在するフィールド: {existing_fields}")
-                if missing_fields:
-                    debug_info.append(f"不足フィールド: {missing_fields}")
-                
-                credentials_exists = all(field in gcp_service_account for field in required_fields)
-                use_streamlit_secrets = True
-                if credentials_exists:
-                    logger.info("Streamlit Secrets認証情報確認済み")
-                    debug_info.append("認証情報: 全フィールド確認済み ✅")
-                else:
-                    debug_info.append("認証情報: 必須フィールド不足 ❌")
-            else:
-                debug_info.append("gcp_service_accountが辞書形式ではない（フラット形式を試行）")
-                # フラット形式を試行
-                flat_account = try_flat_format()
-                if flat_account:
-                    gcp_service_account = flat_account
-                    credentials_exists = True
-                    use_streamlit_secrets = True
-                    debug_info.append("フラット形式での認証情報構築成功 ✅")
-                else:
-                    credentials_exists = False
-                    use_streamlit_secrets = True
-                    debug_info.append("フラット形式キーも不足 ❌")
-        except KeyError:
-            debug_info.append("セクション形式取得失敗 - フラット形式を試行")
-            # フラット形式を試行
-            flat_account = try_flat_format()
-            if flat_account:
-                gcp_service_account = flat_account
-                credentials_exists = True
-                use_streamlit_secrets = True
-                debug_info.append("フラット形式での認証情報構築成功 ✅")
-            else:
-                credentials_exists = False
-                use_streamlit_secrets = True
-                debug_info.append("フラット形式キーも不足 ❌")
-    except (KeyError, FileNotFoundError) as e:
-        logger.warning(f"Streamlit Secrets取得エラー: {e}")
-        debug_info.append(f"Secrets取得エラー: {str(e)}")
-        # ローカル環境の場合
-        credentials_exists = os.path.exists(credentials_path)
-        use_streamlit_secrets = False
-        debug_info.append("ローカル環境モードに切り替え")
+    logger.info("🚨 緊急対応: Streamlit Secrets処理完全スキップ - ローカルファイル認証のみ")
+    debug_info.append("🚨 Base64エラー回避: Streamlit Secrets無効、ローカルファイル認証専用")
+    
+    # ローカルファイル認証のみ使用
+    credentials_exists = os.path.exists(credentials_path)
+    use_streamlit_secrets = False
+    
+    if credentials_exists:
+        debug_info.append("✅ 認証方式: ローカルファイルを使用")
+        logger.info(f"ローカル認証ファイル確認: {credentials_path}")
+    else:
+        debug_info.append("❌ ローカル認証ファイルが見つかりません")
+        logger.error(f"認証ファイル不存在: {credentials_path}")
     
     # サイドバー設定
     with st.sidebar:
@@ -516,19 +442,14 @@ async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_
         status_text.text("🤖 文字起こしサービス初期化中...")
         progress_bar.progress(30)
         
-        if use_streamlit_secrets:
-            # Streamlit Secretsから認証情報を取得
-            gcp_service_account = st.secrets["gcp_service_account"]
-            transcription_service = AudioTranscriptionService(
-                service_account_info=dict(gcp_service_account),
-                gcs_bucket_name=gcs_bucket
-            )
-        else:
-            # ローカルファイルから認証
-            transcription_service = AudioTranscriptionService(
-                service_account_path=credentials_path,
-                gcs_bucket_name=gcs_bucket
-            )
+        # 🚨 緊急対応: Base64エラー回避のため強制的にローカルファイル認証のみ使用
+        logger.info("🚨 async_transcribe: Streamlit Secrets処理完全スキップ")
+        
+        # ローカルファイルから認証（強制）
+        transcription_service = AudioTranscriptionService(
+            service_account_path=credentials_path,
+            gcs_bucket_name=gcs_bucket
+        )
         
         # 出力用の一時ファイル
         with tempfile.NamedTemporaryFile(delete=False, suffix=".txt", mode='w') as output_file:
