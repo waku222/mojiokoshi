@@ -113,16 +113,23 @@ class VideoProcessor:
         logger.info(f"✅ FFmpeg (ffmpeg-python) available: {FFMPEG_AVAILABLE}")
         logger.info(f"✅ imageio-ffmpeg available: {IMAGEIO_FFMPEG_AVAILABLE}")
         logger.info(f"🎯 Video processing available: {self.video_processing_available}")
+        logger.info(f"🔧 OpenCV-only mode available: {self.opencv_only_mode}")
         logger.info("=" * 50)
         
-        # 不足ライブラリの詳細診断
+        # 不足ライブラリの詳細診断と代替案提示
         if not self.video_processing_available:
             missing = []
             if not MOVIEPY_AVAILABLE:
                 missing.append("MoviePy")
             if not CV2_AVAILABLE:
                 missing.append("OpenCV")
-            logger.warning(f"❌ 動画処理無効: {', '.join(missing)} が不足")
+            logger.warning(f"❌ 完全動画処理無効: {', '.join(missing)} が不足")
+            
+            if self.opencv_only_mode:
+                logger.info("✅ 代替案: OpenCVのみモードで基本的な動画処理が可能")
+                logger.info("   - 動画情報取得")
+                logger.info("   - フレーム抽出")
+                logger.info("   - 基本的な動画分析")
         
         # FFmpeg環境変数の確認
         import os
@@ -132,7 +139,10 @@ class VideoProcessor:
             logger.warning("⚠️ IMAGEIO_FFMPEG_EXE 未設定")
         
         if not self.video_processing_available:
-            logger.warning("Video processing libraries not available. Audio-only mode enabled.")
+            if self.opencv_only_mode:
+                logger.info("⚠️ MoviePy利用不可。OpenCV基本モードで動作中")
+            else:
+                logger.warning("❌ Video processing libraries not available. Audio-only mode enabled.")
     
     def validate_video_file(self, video_path: str) -> bool:
         """
