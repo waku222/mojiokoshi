@@ -652,6 +652,26 @@ def check_company_access():
             display: none !important;
         }
         
+        /* Streamlitのメニューボタンを非表示 */
+        button[kind="header"] {
+            display: none !important;
+        }
+        
+        /* Streamlitのデプロイボタンも非表示 */
+        .stDeployButton {
+            display: none !important;
+        }
+        
+        /* その他の紫色系要素を非表示 */
+        div[data-testid="stSidebar"] {
+            display: none !important;
+        }
+        
+        /* ツールバーを非表示 */
+        .stToolbar {
+            display: none !important;
+        }
+        
         /* ログインコンテナ（コンパクト版） */
         .login-container {
             max-width: 400px;
