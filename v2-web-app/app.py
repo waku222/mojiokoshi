@@ -203,6 +203,13 @@ def main():
         use_streamlit_secrets = False
         debug_info.append("ローカル環境モードに切り替え")
     
+    # 【緊急修正】一時的にローカルファイルを強制使用
+    if os.path.exists(credentials_path):
+        logger.info("🔧 緊急修正: ローカルファイルを強制使用")
+        debug_info.append("🔧 緊急修正: Base64エラー回避のためローカルファイル認証に切り替え")
+        use_streamlit_secrets = False
+        credentials_exists = True
+    
     # サイドバー設定
     with st.sidebar:
         st.header("⚙️ 設定")
