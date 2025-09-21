@@ -4,6 +4,15 @@
 """
 
 import streamlit as st
+
+# ページ設定（UIクリーンアップ版）
+st.set_page_config(
+    page_title="AI文字起こしサービス（テスト版）",
+    page_icon="🎤",
+    layout="centered",
+    initial_sidebar_state="collapsed"  # サイドバーを最初から閉じる
+)
+
 import os
 import tempfile
 import asyncio
