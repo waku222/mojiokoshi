@@ -31,6 +31,10 @@ from shared.config import *
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# 🚨 緊急対応: Base64エラー回避のための固定値設定
+GCS_BUCKET_NAME = "250728transcription-bucket"
+COMPANY_ACCESS_KEY = "tatsujiro25"
+
 # 動画処理の条件付きインポート（詳細診断版）
 try:
     from shared.video_processor import VideoProcessor
@@ -188,11 +192,8 @@ COMPANY_ACCESS_KEY = "tatsujiro25"''', language="toml")
             else:
                 st.error(f"**管理者へ**: 以下の場所に配置してください:\n`{credentials_path}`")
         
-        # GCSバケット名（Streamlit Cloud対応）
-        try:
-            default_bucket = st.secrets.get("GCS_BUCKET_NAME", GCS_BUCKET_NAME)
-        except:
-            default_bucket = GCS_BUCKET_NAME
+        # 🚨 緊急対応: GCSバケット名を固定値で設定（Secrets無効化）
+        default_bucket = GCS_BUCKET_NAME
             
         gcs_bucket = st.text_input(
             "GCSバケット名",
@@ -531,12 +532,8 @@ def calculate_optimal_chunk_length(uploaded_file, is_video: bool = False):
 def check_company_access():
     """社内専用アクセス認証"""
     
-    # 社内専用アクセスキー（環境変数またはSecretsから取得）
-    try:
-        COMPANY_ACCESS_KEY = st.secrets["COMPANY_ACCESS_KEY"]
-    except:
-        # フォールバック用のデフォルトキー（本番環境では削除推奨）
-        COMPANY_ACCESS_KEY = "tatsujiro25"
+    # 🚨 緊急対応: アクセスキーも固定値で設定（Secrets無効化）
+    # COMPANY_ACCESS_KEY は既に定数として定義済み
     
     # セッション状態の初期化
     if 'authenticated' not in st.session_state:
