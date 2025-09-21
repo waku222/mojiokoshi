@@ -614,22 +614,42 @@ def check_company_access():
         st.session_state.login_attempts = 0
     
     if not st.session_state.authenticated:
-        # 認証画面のスタイル設定（紫色ブロック削除版）
+        # 認証画面のスタイル設定（紫色ブロック完全削除版）
         st.markdown("""
         <style>
-        /* Streamlitデフォルト要素を非表示 */
-        .stProgress > div > div > div > div {
-            background-color: transparent !important;
+        /* Streamlit上部バーと紫色要素を完全削除 */
+        .stApp > header[data-testid="stHeader"] {
+            display: none !important;
         }
         
-        /* メインヘッダーのStreamlitロゴを非表示 */
-        .stApp > header {
-            background-color: transparent !important;
+        /* プログレスバーを非表示 */
+        .stProgress {
+            display: none !important;
         }
         
-        /* 上部の不要なパディングを削除 */
-        .main > div {
-            padding-top: 1rem !important;
+        /* メインコンテナの上部パディング削除 */
+        .main .block-container {
+            padding-top: 0rem !important;
+            max-width: 100% !important;
+        }
+        
+        /* Streamlitのデフォルト背景削除 */
+        .stApp {
+            background-color: #f0f2f6 !important;
+        }
+        
+        /* 上部の余白を完全削除 */
+        section.main > div {
+            padding-top: 0rem !important;
+        }
+        
+        /* 紫色の要素を強制的に非表示 */
+        div[style*="background-color: rgb(106, 92, 231)"] {
+            display: none !important;
+        }
+        
+        div[style*="background: linear-gradient"] {
+            display: none !important;
         }
         
         /* ログインコンテナ（コンパクト版） */
