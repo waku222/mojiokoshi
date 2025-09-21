@@ -7,24 +7,23 @@ google-cloud-speech>=2.21.0
 google-cloud-storage>=2.10.0
 google-auth>=2.22.0
 
-# 音声・動画処理関連
+# 音声・動画処理関連（Streamlit Cloud最適化）
 pydub>=0.25.1
-opencv-python>=4.8.0
+opencv-python-headless>=4.8.0
 moviepy>=1.0.3
-ffmpeg-python>=0.2.0
 
-# Python 3.13互換性対応
-audioop-lts>=1.0.0; python_version >= '3.13'
+# Python 3.13互換性対応（条件付きインストール）
+audioop-lts; python_version >= '3.13'
 
 # データ処理・ユーティリティ
 Pillow>=10.0.0
 pandas>=2.0.0
 numpy>=1.24.0
 
-# その他のライブラリ（必要に応じて）
+# システム互換性
 pathlib2>=2.3.7; python_version < '3.4'
 
-# 注意事項:
-# - FFmpegが別途システムにインストールされている必要があります
-# - Streamlit Cloud環境では ffmpeg-python パッケージでFFmpeg依存関係を解決
-# - 本番環境での動作確認が必要です
+# Streamlit Cloud最適化版
+# - opencv-python-headless: GUI不要のOpenCV
+# - moviepy: Streamlit Cloud標準サポート
+# - audioop-lts: Python 3.13互換性
