@@ -14,6 +14,7 @@ pydub>=0.25.1
 opencv-python-headless>=4.8.0
 moviepy>=1.0.3
 imageio-ffmpeg>=0.4.9
+ffmpeg-python>=0.2.0
 
 # Python 3.13互換性対応（条件付きインストール）
 audioop-lts; python_version >= '3.13'

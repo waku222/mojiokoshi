@@ -21,30 +21,50 @@ except ImportError:
     CV2_AVAILABLE = False
     logger.warning("OpenCV not available - video preview disabled")
 
+# MoviePyの詳細初期化（FFmpeg設定強化版）
 try:
+    # imageio-ffmpegを先に初期化
+    import imageio_ffmpeg as iio_ffmpeg
+    IMAGEIO_FFMPEG_AVAILABLE = True
+    logger.info("imageio-ffmpeg 初期化成功")
+    
+    # FFmpeg実行可能ファイルの設定
+    import os
+    import imageio_ffmpeg
+    ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+    
+    # MoviePyの環境変数設定
+    os.environ['IMAGEIO_FFMPEG_EXE'] = ffmpeg_exe
+    logger.info(f"FFmpeg実行パス設定: {ffmpeg_exe}")
+    
+    # MoviePyをimport
     from moviepy.editor import VideoFileClip
     MOVIEPY_AVAILABLE = True
-    logger.info("MoviePy import successful")
-except ImportError:
+    logger.info("✅ MoviePy 初期化成功（imageio-ffmpeg連携）")
+    
+except ImportError as e:
     MOVIEPY_AVAILABLE = False
-    logger.warning("MoviePy not available - video processing disabled")
+    IMAGEIO_FFMPEG_AVAILABLE = False
+    logger.warning(f"❌ MoviePy 初期化失敗: {e}")
 
+# ffmpeg-pythonライブラリの確認
 try:
     import ffmpeg
     FFMPEG_AVAILABLE = True
-    logger.info("FFmpeg import successful")
+    logger.info("✅ ffmpeg-python ライブラリ利用可能")
 except ImportError:
     FFMPEG_AVAILABLE = False
-    logger.warning("FFmpeg not available - advanced video processing disabled")
+    logger.warning("❌ ffmpeg-python ライブラリ利用不可")
 
-# imageio-ffmpeg の追加確認
-try:
-    import imageio_ffmpeg as iio_ffmpeg
-    IMAGEIO_FFMPEG_AVAILABLE = True
-    logger.info("imageio-ffmpeg available for MoviePy")
-except ImportError:
-    IMAGEIO_FFMPEG_AVAILABLE = False
-    logger.warning("imageio-ffmpeg not available")
+# 最終的な可用性確認
+if not IMAGEIO_FFMPEG_AVAILABLE:
+    try:
+        import imageio_ffmpeg as iio_ffmpeg
+        IMAGEIO_FFMPEG_AVAILABLE = True
+        logger.info("imageio-ffmpeg 後期初期化成功")
+    except ImportError:
+        IMAGEIO_FFMPEG_AVAILABLE = False
+        logger.warning("imageio-ffmpeg 完全に利用不可")
 
 class VideoProcessor:
     """動画ファイル処理クラス"""

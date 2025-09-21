@@ -114,12 +114,23 @@ def main():
             flat_exists = all(key in st.secrets for key in flat_keys)
             
             if flat_exists:
-                # フラット形式でサービスアカウント情報を構築
+                # フラット形式でサービスアカウント情報を構築（private_key修正版）
+                private_key_raw = st.secrets["gcp_service_account_private_key"]
+                
+                # private_keyの改行文字を正しく処理
+                if "\\n" in private_key_raw:
+                    # エスケープされた改行文字を実際の改行文字に変換
+                    private_key_formatted = private_key_raw.replace("\\n", "\n")
+                else:
+                    private_key_formatted = private_key_raw
+                
+                debug_info.append(f"Private key処理: エスケープ文字変換 {'実行' if '\\\\n' in private_key_raw else 'スキップ'}")
+                
                 return {
                     "type": st.secrets["gcp_service_account_type"],
                     "project_id": st.secrets["gcp_service_account_project_id"],
                     "private_key_id": st.secrets.get("gcp_service_account_private_key_id", ""),
-                    "private_key": st.secrets["gcp_service_account_private_key"],
+                    "private_key": private_key_formatted,  # 修正されたprivate_keyを使用
                     "client_email": st.secrets["gcp_service_account_client_email"],
                     "client_id": st.secrets.get("gcp_service_account_client_id", ""),
                     "auth_uri": st.secrets.get("gcp_service_account_auth_uri", ""),
@@ -134,7 +145,7 @@ def main():
             gcp_service_account = st.secrets["gcp_service_account"]
             debug_info.append("gcp_service_account取得成功（セクション形式）")
             
-            # より詳細な認証情報確認
+            # より詳細な認証情報確認（private_key処理強化版）
             if gcp_service_account and isinstance(gcp_service_account, dict):
                 required_fields = ["type", "project_id", "private_key", "client_email"]
                 existing_fields = [field for field in required_fields if field in gcp_service_account]
@@ -145,6 +156,17 @@ def main():
                     debug_info.append(f"不足フィールド: {missing_fields}")
                 
                 credentials_exists = all(field in gcp_service_account for field in required_fields)
+                
+                # private_keyの改行文字処理（セクション形式でも適用）
+                if credentials_exists and "private_key" in gcp_service_account:
+                    private_key_raw = gcp_service_account["private_key"]
+                    if "\\n" in private_key_raw:
+                        # エスケープされた改行文字を実際の改行文字に変換
+                        gcp_service_account["private_key"] = private_key_raw.replace("\\n", "\n")
+                        debug_info.append("セクション形式private_key: エスケープ文字変換実行 ✅")
+                    else:
+                        debug_info.append("セクション形式private_key: エスケープ文字変換スキップ")
+                
                 use_streamlit_secrets = True
                 if credentials_exists:
                     logger.info("Streamlit Secrets認証情報確認済み")
