@@ -99,21 +99,42 @@ def main():
     # 認証情報の確認（Streamlit Cloud対応強化版）
     credentials_path = os.path.join(os.path.dirname(__file__), "..", "credentials", "service-account-key.json")
     
-    # 🚨 緊急対応: Base64エラー回避のためStreamlit Secrets処理を完全無効化
+    # 🔧 シンプルなSecrets処理（Base64エラー回避版）
     debug_info = []
-    logger.info("🚨 緊急対応: Streamlit Secrets処理完全スキップ - ローカルファイル認証のみ")
-    debug_info.append("🚨 Base64エラー回避: Streamlit Secrets無効、ローカルファイル認証専用")
+    logger.info("🔧 シンプルなSecrets処理開始")
     
-    # ローカルファイル認証のみ使用
-    credentials_exists = os.path.exists(credentials_path)
-    use_streamlit_secrets = False
+    # ローカルファイルの存在確認
+    local_file_exists = os.path.exists(credentials_path)
+    debug_info.append(f"📁 ローカルファイル: {'存在' if local_file_exists else '不存在'}")
     
-    if credentials_exists:
-        debug_info.append("✅ 認証方式: ローカルファイルを使用")
-        logger.info(f"ローカル認証ファイル確認: {credentials_path}")
+    # Streamlit Cloud環境かどうか判定
+    try:
+        # Secretsが利用可能かチェック
+        secrets_available = hasattr(st, 'secrets') and len(st.secrets) > 0
+        debug_info.append(f"☁️ Streamlit Cloud: {'検出' if secrets_available else '未検出'}")
+    except:
+        secrets_available = False
+        debug_info.append("☁️ Streamlit Cloud: 未検出（エラー）")
+    
+    # 認証方式の決定
+    if local_file_exists:
+        # ローカル環境（開発環境）
+        credentials_exists = True
+        use_streamlit_secrets = False
+        debug_info.append("✅ 認証方式: ローカルファイル")
+        logger.info("ローカルファイル認証を使用")
+    elif secrets_available:
+        # Streamlit Cloud環境
+        credentials_exists = True
+        use_streamlit_secrets = True
+        debug_info.append("✅ 認証方式: Streamlit Secrets")
+        logger.info("Streamlit Secrets認証を使用")
     else:
-        debug_info.append("❌ ローカル認証ファイルが見つかりません")
-        logger.error(f"認証ファイル不存在: {credentials_path}")
+        # 認証情報なし
+        credentials_exists = False
+        use_streamlit_secrets = False
+        debug_info.append("❌ 認証情報: なし")
+        logger.error("認証情報が見つかりません")
     
     # サイドバー設定
     with st.sidebar:
@@ -192,8 +213,14 @@ COMPANY_ACCESS_KEY = "tatsujiro25"''', language="toml")
             else:
                 st.error(f"**管理者へ**: 以下の場所に配置してください:\n`{credentials_path}`")
         
-        # 🚨 緊急対応: GCSバケット名を固定値で設定（Secrets無効化）
-        default_bucket = GCS_BUCKET_NAME
+        # GCSバケット名（環境に応じて取得）
+        if use_streamlit_secrets:
+            try:
+                default_bucket = st.secrets.get("GCS_BUCKET_NAME", GCS_BUCKET_NAME)
+            except:
+                default_bucket = GCS_BUCKET_NAME
+        else:
+            default_bucket = GCS_BUCKET_NAME
             
         gcs_bucket = st.text_input(
             "GCSバケット名",
@@ -443,14 +470,38 @@ async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_
         status_text.text("🤖 文字起こしサービス初期化中...")
         progress_bar.progress(30)
         
-        # 🚨 緊急対応: Base64エラー回避のため強制的にローカルファイル認証のみ使用
-        logger.info("🚨 async_transcribe: Streamlit Secrets処理完全スキップ")
-        
-        # ローカルファイルから認証（強制）
-        transcription_service = AudioTranscriptionService(
-            service_account_path=credentials_path,
-            gcs_bucket_name=gcs_bucket
-        )
+        # 🔧 シンプルな認証方式選択（Base64エラー回避版）
+        if use_streamlit_secrets:
+            # Streamlit Cloud環境：Secretsから認証情報を取得
+            logger.info("Streamlit Secrets認証を使用")
+            try:
+                # シンプルなSecrets取得（フラット形式のみ）
+                service_account_info = {
+                    "type": st.secrets["gcp_service_account_type"],
+                    "project_id": st.secrets["gcp_service_account_project_id"],
+                    "private_key": st.secrets["gcp_service_account_private_key"],
+                    "client_email": st.secrets["gcp_service_account_client_email"],
+                    "private_key_id": st.secrets.get("gcp_service_account_private_key_id", ""),
+                    "client_id": st.secrets.get("gcp_service_account_client_id", ""),
+                    "auth_uri": st.secrets.get("gcp_service_account_auth_uri", "https://accounts.google.com/o/oauth2/auth"),
+                    "token_uri": st.secrets.get("gcp_service_account_token_uri", "https://oauth2.googleapis.com/token"),
+                    "auth_provider_x509_cert_url": st.secrets.get("gcp_service_account_auth_provider_x509_cert_url", "https://www.googleapis.com/oauth2/v1/certs"),
+                    "client_x509_cert_url": st.secrets.get("gcp_service_account_client_x509_cert_url", "")
+                }
+                transcription_service = AudioTranscriptionService(
+                    service_account_info=service_account_info,
+                    gcs_bucket_name=gcs_bucket
+                )
+            except Exception as e:
+                logger.error(f"Streamlit Secrets認証エラー: {e}")
+                raise Exception(f"Streamlit Secrets認証に失敗しました: {str(e)}")
+        else:
+            # ローカル環境：ファイルから認証
+            logger.info("ローカルファイル認証を使用")
+            transcription_service = AudioTranscriptionService(
+                service_account_path=credentials_path,
+                gcs_bucket_name=gcs_bucket
+            )
         
         # 出力用の一時ファイル
         with tempfile.NamedTemporaryFile(delete=False, suffix=".txt", mode='w') as output_file:
@@ -532,8 +583,15 @@ def calculate_optimal_chunk_length(uploaded_file, is_video: bool = False):
 def check_company_access():
     """社内専用アクセス認証"""
     
-    # 🚨 緊急対応: アクセスキーも固定値で設定（Secrets無効化）
-    # COMPANY_ACCESS_KEY は既に定数として定義済み
+    # アクセスキー（環境に応じて取得）
+    try:
+        # Secrets環境かどうかをチェック
+        if hasattr(st, 'secrets') and len(st.secrets) > 0:
+            access_key_for_auth = st.secrets.get("COMPANY_ACCESS_KEY", COMPANY_ACCESS_KEY)
+        else:
+            access_key_for_auth = COMPANY_ACCESS_KEY
+    except:
+        access_key_for_auth = COMPANY_ACCESS_KEY
     
     # セッション状態の初期化
     if 'authenticated' not in st.session_state:
@@ -689,7 +747,7 @@ def check_company_access():
                 login_button = st.button("🚀 ログイン", use_container_width=True, type="primary")
             
             if login_button:
-                if access_key == COMPANY_ACCESS_KEY:
+                if access_key == access_key_for_auth:
                     st.session_state.authenticated = True
                     st.success("✅ 認証に成功しました！")
                     st.balloons()  # お祝い効果
