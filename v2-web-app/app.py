@@ -92,21 +92,32 @@ def main():
     
     st.markdown("---")  # セパレーター追加
     
-    # 認証情報の確認（Streamlit Cloud対応強化版）
+    # 認証情報の確認（ローカルファイル強制版）
     credentials_path = os.path.join(os.path.dirname(__file__), "..", "credentials", "service-account-key.json")
     
-    # Streamlit Cloudの場合はsecretsから認証情報を取得
-    # デバッグ情報はセッションに保持して他関数からも参照できるようにする
+    # 【緊急修正】Base64エラー回避のため、常にローカルファイルを使用
     if 'debug_info' not in st.session_state:
         st.session_state.debug_info = []
     debug_info = st.session_state.debug_info
-    try:
-        # デバッグ: 利用可能なSecretsキー確認
-        available_secrets = list(st.secrets.keys())
-        debug_info.append(f"利用可能なSecretsキー: {available_secrets}")
-        
-        # セクション形式とフラット形式の両方に対応（統一版）
-        def try_flat_format():
+    
+    # ローカルファイルの存在確認
+    credentials_exists = os.path.exists(credentials_path)
+    use_streamlit_secrets = False  # 強制的にローカルファイル使用
+    
+    debug_info.append("🔧 【緊急修正】Base64エラー回避のためStreamlit Secrets無効化")
+    debug_info.append(f"📁 ローカルファイル存在: {credentials_exists}")
+    debug_info.append(f"📂 ファイルパス: {credentials_path}")
+    
+    # 以降のSecrets処理をスキップ
+    logger.info("🔧 緊急修正: Streamlit Secrets処理をスキップ、ローカルファイル使用")
+    
+    # 元のSecrets処理は完全にスキップ（Base64エラー回避）
+    logger.info("🔧 Secrets処理完全スキップ開始")
+    
+    # スキップされたメッセージをデバッグに追加
+    if False:  # Secrets処理を無効化
+        # 以下の処理はスキップされる
+        available_secrets = []
             """フラット形式での認証情報構築を試行"""
             flat_keys = [
                 "gcp_service_account_type",
@@ -521,10 +532,15 @@ async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_
     """非同期文字起こし処理"""
     
     try:
+        # 【緊急修正】Base64エラー回避のため、強制的にローカルファイル使用
+        use_streamlit_secrets = False
+        logger.info("🔧 async_transcribe: 強制的にローカルファイル認証に切り替え")
+        
         # セッションのデバッグ情報を取得（未初期化なら初期化）
         if 'debug_info' not in st.session_state:
             st.session_state.debug_info = []
         debug_info = st.session_state.debug_info
+        debug_info.append("🔧 async_transcribe: Streamlit Secrets無効化、ローカルファイル強制使用")
 
         # ファイルタイプを判定
         file_extension = Path(input_file_path).suffix.lower()
