@@ -83,7 +83,7 @@ def main():
     """メインアプリケーション"""
     
     # タイトルとヘッダー（一番上に配置）
-    st.title("🎤 AI文字起こしサービス")
+    st.title("AI文字起こしサービス")
     st.markdown("**音声ファイル・動画ファイルから高精度な日本語文字起こしを行います**")
     
     # タイトル画像の表示
@@ -668,21 +668,65 @@ def check_company_access():
             color: white;
         }
         
-        /* タイトルスタイル */
+        /* タイトルスタイル（横並び対応） */
         .login-title {
-            text-align: center;
-            font-size: 1.8rem;
+            text-align: left;
+            font-size: 1.6rem;
             margin-bottom: 0.2rem;
             color: white;
+            font-weight: bold;
         }
         
         /* サブタイトルスタイル */
         .login-subtitle {
-            text-align: center;
-            font-size: 1rem;
+            text-align: left;
+            font-size: 0.9rem;
             margin-bottom: 0.5rem;
             color: #ff6b6b;
             font-weight: bold;
+        }
+        
+        /* 左側画像のスタイル */
+        .login-image-left {
+            text-align: center;
+            margin-top: 0.5rem;
+        }
+        
+        /* 右側タイトルのスタイル */
+        .login-title-right {
+            padding-left: 1rem;
+            padding-top: 1rem;
+        }
+        
+        /* アクセスキーラベルのスタイル */
+        .access-key-label {
+            color: white;
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            text-align: center;
+        }
+        
+        /* 入力欄のスタイル改善 */
+        .stTextInput > div > div > input {
+            background-color: white !important;
+            color: black !important;
+            border: 2px solid #4CAF50 !important;
+            border-radius: 8px !important;
+            padding: 12px !important;
+            font-size: 1rem !important;
+            font-weight: 500 !important;
+        }
+        
+        .stTextInput > div > div > input::placeholder {
+            color: #666666 !important;
+            font-style: italic;
+        }
+        
+        /* フォーカス時のスタイル */
+        .stTextInput > div > div > input:focus {
+            border-color: #45a049 !important;
+            box-shadow: 0 0 8px rgba(76, 175, 80, 0.3) !important;
         }
         
         /* 画像センター寄せ（強化版） */
@@ -721,24 +765,38 @@ def check_company_access():
         with col2:
             st.markdown('<div class="login-container">', unsafe_allow_html=True)
             
-            # タイトル画像をログイン画面にセンター表示
+            # 魔法使い画像とタイトルを横並び表示
             title_image_path = os.path.join(os.path.dirname(__file__), "assets", "title_wizard.png")
             if os.path.exists(title_image_path):
-                st.markdown('<div class="login-image">', unsafe_allow_html=True)
-                st.image(title_image_path, width=160)  # サイズを若干縮小してコンパクトに
-                st.markdown('</div>', unsafe_allow_html=True)
+                # 画像とタイトルのカラム分割
+                img_col, title_col = st.columns([1, 2])
+                
+                with img_col:
+                    st.markdown('<div class="login-image-left">', unsafe_allow_html=True)
+                    st.image(title_image_path, width=120)
+                    st.markdown('</div>', unsafe_allow_html=True)
+                
+                with title_col:
+                    st.markdown('<div class="login-title-right">', unsafe_allow_html=True)
+                    st.markdown('<h1 class="login-title">AI文字起こし</h1>', unsafe_allow_html=True)
+                    st.markdown('<h3 class="login-subtitle">（テスト版）</h3>', unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+            else:
+                # 画像がない場合はセンター表示
+                st.markdown('<h1 class="login-title">AI文字起こし</h1>', unsafe_allow_html=True)
+                st.markdown('<h3 class="login-subtitle">（テスト版）</h3>', unsafe_allow_html=True)
             
-            st.markdown('<h1 class="login-title">🎤 AI文字起こしサービス</h1>', unsafe_allow_html=True)
-            st.markdown('<h3 class="login-subtitle">（テスト版）</h3>', unsafe_allow_html=True)
             st.markdown("**🔐 社内専用アクセス**")
             st.markdown("---")
             
-            # アクセスキー入力
+            # アクセスキー入力（見やすく改良）
+            st.markdown('<p class="access-key-label">🔑 アクセスキーを入力してください</p>', unsafe_allow_html=True)
             access_key = st.text_input(
-                "アクセスキーを入力してください",
+                "",
                 type="password",
                 placeholder="社内配布されたキーを入力",
-                help="社内で配布されているアクセスキーを入力してください"
+                help="社内で配布されているアクセスキーを入力してください",
+                key="access_key_input"
             )
             
             # ログインボタン
