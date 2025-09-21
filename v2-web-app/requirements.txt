@@ -1,0 +1,27 @@
+# Streamlitアプリケーション用の依存関係
+streamlit>=1.28.0
+streamlit-option-menu>=0.3.6
+
+# Google Cloud関連
+google-cloud-speech>=2.21.0
+google-cloud-storage>=2.10.0
+google-auth>=2.22.0
+
+# 音声・動画処理関連
+pydub>=0.25.1
+opencv-python>=4.8.0
+moviepy>=1.0.3
+ffmpeg-python>=0.2.0
+
+# データ処理・ユーティリティ
+Pillow>=10.0.0
+pandas>=2.0.0
+numpy>=1.24.0
+
+# その他のライブラリ（必要に応じて）
+pathlib2>=2.3.7; python_version < '3.4'
+
+# 注意事項:
+# - FFmpegが別途システムにインストールされている必要があります
+# - Streamlit Cloud環境では ffmpeg-python パッケージでFFmpeg依存関係を解決
+# - 本番環境での動作確認が必要です
