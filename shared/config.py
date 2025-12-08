@@ -3,11 +3,14 @@
 使用前に適切な値を設定してください
 """
 
+import os
+
 # Google Cloud Speech-to-Text用のサービスアカウントキーファイルパス
 SERVICE_ACCOUNT_PATH = "./credentials/service-account-key.json"
 
 # Google Cloud Storage バケット名（長時間音声処理用）
-GCS_BUCKET_NAME = "250728transcription-bucket"
+# 環境変数GCS_BUCKET_NAMEから取得し、未設定の場合は空文字列
+GCS_BUCKET_NAME = os.getenv("GCS_BUCKET_NAME", "")
 
 # 音声チャンクの長さ（ミリ秒）デフォルト5分
 CHUNK_LENGTH_MS = 300000
@@ -24,4 +27,4 @@ AUDIO_CHANNELS = 1  # モノラル
 AUDIO_FORMAT = "wav"
 
 # ログレベル
-LOG_LEVEL = "INFO" 
+LOG_LEVEL = "INFO"

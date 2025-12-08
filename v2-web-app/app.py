@@ -19,21 +19,22 @@ import asyncio
 from pathlib import Path
 import logging
 from datetime import datetime
+import traceback
+import importlib.util
 
 # 共通機能のインポート
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from shared.transcription_service import AudioTranscriptionService
-from shared.config import *
 
 # ログ設定（最初に定義）
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# 🚨 緊急対応: Base64エラー回避のための固定値設定
-GCS_BUCKET_NAME = "250728transcription-bucket"
-COMPANY_ACCESS_KEY = "tatsujiro25"
+# 環境から取得するデフォルト値（ハードコード禁止）
+DEFAULT_GCS_BUCKET = os.getenv("GCS_BUCKET_NAME", "").strip()
+DEFAULT_COMPANY_ACCESS_KEY = os.getenv("COMPANY_ACCESS_KEY", "tatsujiro25Koueki").strip()
 
 # 動画処理の条件付きインポート（詳細診断版）
 try:
@@ -50,26 +51,24 @@ try:
     else:
         logger.warning("⚠️ 動画処理機能: ライブラリ不足のため無効")
         # 具体的にどのライブラリが不足しているかを確認
-        try:
-            import cv2
+        opencv_available = importlib.util.find_spec("cv2") is not None
+        moviepy_available = importlib.util.find_spec("moviepy.editor") is not None
+        if opencv_available:
             logger.info("OpenCV: 利用可能")
-        except ImportError:
+        else:
             logger.warning("OpenCV: 利用不可")
-            
-        try:
-            from moviepy.editor import VideoFileClip
+        if moviepy_available:
             logger.info("MoviePy: 利用可能")
-        except ImportError:
+        else:
             logger.warning("MoviePy: 利用不可")
             
 except ImportError as e:
     VIDEO_PROCESSING_AVAILABLE = False
-    logger.warning(f"VideoProcessor インポートエラー: {e}")
-except Exception as e:
+    logger.warning("VideoProcessor インポートエラー: %s", e)
+except (RuntimeError, ValueError, OSError) as e:
     VIDEO_PROCESSING_AVAILABLE = False
-    logger.error(f"VideoProcessor 初期化失敗: {type(e).__name__}: {str(e)}")
-    import traceback
-    logger.error(f"詳細トレースバック: {traceback.format_exc()}")
+    logger.error("VideoProcessor 初期化失敗: %s: %s", type(e).__name__, str(e))
+    logger.error("詳細トレースバック: %s", traceback.format_exc())
 
 # Streamlitページ設定
 st.set_page_config(
@@ -90,7 +89,7 @@ def main():
     title_image_path = os.path.join(os.path.dirname(__file__), "assets", "title_wizard.png")
     if os.path.exists(title_image_path):
         # 中央寄せで画像を表示
-        col1, col2, col3 = st.columns([1, 2, 1])
+        _, col2, _ = st.columns([1, 2, 1])
         with col2:
             st.image(title_image_path, width=300, caption="AI魔法使いコウイチくんによる文字起こし")
     
@@ -112,7 +111,7 @@ def main():
         # Secretsが利用可能かチェック
         secrets_available = hasattr(st, 'secrets') and len(st.secrets) > 0
         debug_info.append(f"☁️ Streamlit Cloud: {'検出' if secrets_available else '未検出'}")
-    except:
+    except (AttributeError, TypeError):
         secrets_available = False
         debug_info.append("☁️ Streamlit Cloud: 未検出（エラー）")
     
@@ -181,46 +180,47 @@ def main():
                     with st.expander("🔹 フラット形式（推奨）", expanded=True):
                         st.code('''# Google Cloud Service Account (フラット形式)
 gcp_service_account_type = "service_account"
-gcp_service_account_project_id = "gen-lang-client-0653854891"
-gcp_service_account_private_key_id = "27887a0412001d91181210877e3c88d14977e65f"
-gcp_service_account_private_key = "-----BEGIN PRIVATE KEY-----\\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDO4Mio1jkcZviX\\nQiC8awDknwUHxIPD173ElFKBXVt17XsJjQMrDAmlFHk23Y1yM7uKtzkONjWNSqJ9\\ne8JWC1aE/mEegPzPkdUNOGFYiEJJ7fGpL826QWm5vGDbiWnV1zY1q/SFSeoyLacF\\nXzzum4kqEIIdxBNMMNiWR1/zmqd6AZ/zDSkOwLVxlcfzygTw9loSyS/Q1ofY5Vzw\\nUUPGoEufOWVy6sItxMc9ikEGkkB5a4kACmuLdYWa/17TC6FlLLkT76pvHEZD57sb\\n+vR58/frhaS+ZoPUMyIjGDxUAgcILctyogEjVE7/+FQvj632c2KZ0YgrX8Hh53Gx\\nZBg/ZvbXAgMBAAECggEAL6F/cagI9CodGC5IfTkhtoGKVfR/5epZLdZ8fH5zHV61\\nEkjeLt4RpmllUyWFeILCrjhrMYN3pvVFHiENaGQp4mrzD2PhUSUhaW7OsuSEZqMb\\nHbn84uJGplXh8wnbTTnEqGzT2pBfFHiAWPNJgyJaXU35t0K6srMYWtlKFTtJTgSB\\nv2jchhNjDwrSPkGCEkhhn9KKudxOo45rnrzR2qYIJkBRVvLDLO+/O1COPO0LRTEl\\ny7czEVSzEwxchvH3Rrnq964yBIoWtZ0cbgd4+6XIOgyOqA0FT0RsTgBlFLeQcdaT\\naArzAOxMrlMXlqpPynckveyZz+msiFrViV207+w16QKBgQDr0+fQdpVN4BmSX9BQ\\ngNs+TeyI+OL1V9JvlGHhntmLnaxjKLipwsDrArybp15UAoNiecMN98C4DraDz/M+\\npW38d+1YSsG9PLyOQWT9ZsxZF3ELIU+nzeipxc0sK8nYc1F5tPAVWF9axPTxkYen\\n2IjWBk5Na4T2Kflli8VeqRQDJQKBgQDgkvIKwWYAuua3jaJkaa9gPYV0QtYyFraL\\nWAaD14d0C2IXhtjv24BAjHKDIFbJFhvUQjpslTheDTxb2MG4OpwL5fpiykeDHKaR\\ndbl94ndhNfYD7eMKCA9VffmOmlJkRaVhFbEOFVBOQi096DEBijHAfbSa4xW2DWpT\\nQ9lsE2lvSwKBgQDDHKl4sgPJUJYXoqopUNMT80i18qVkM2rp4iwxjUmT17oeuDxA\\nR99xEOyXI5xJiWLGgNM+pTKPlayv1cb8l8Yt0dNO71rnhG7Ei5pQhVKgi2J9wOu0\\nfAn5HKwp1XjEWnSYa3kPT/RklvvJOYyw89gSq1jxePmi6QtsVn3PWbgy+QKBgBXM\\nDXQfy1+8xFICjEWEwIHt1rsvFY0tCTDDLXa0f7AyvqWb8Ahv3KXnO+IgTGweGjti\\n5jrNzPfL/xTHGB5iiezZuJDII2LFcCFkNMnUJlQoIaXF/ChoGdzpakR+FAspe2DN\\n8y5zwSSnZa7Bj6gfmq6dRN9XtS7DZJOKXVsRE0W7AoGBAJAe/2NLkynvIWfC2GSO\\npw48K5wGjOvBrRQ7F1U33g++uWBd8TTllIdo5alra0sgySYeWJdRD9FIknR20M2c\\nkLiKUbsnsBLxckCUuFfMeaWZTNQMwvOBUUaE1kTlGdpe25lOY1igzEKMgP9BXqoA\\nRZHgmigY14wDQpxLG1Ex1EuM\\n-----END PRIVATE KEY-----\\n"
-gcp_service_account_client_email = "mojiokoshi@gen-lang-client-0653854891.iam.gserviceaccount.com"
-gcp_service_account_client_id = "105257418930370464852"
+gcp_service_account_project_id = "<YOUR_PROJECT_ID>"
+gcp_service_account_private_key_id = "<YOUR_PRIVATE_KEY_ID>"
+gcp_service_account_private_key = "<YOUR_PRIVATE_KEY>"
+gcp_service_account_client_email = "<YOUR_CLIENT_EMAIL>"
+gcp_service_account_client_id = "<YOUR_CLIENT_ID>"
 gcp_service_account_auth_uri = "https://accounts.google.com/o/oauth2/auth"
 gcp_service_account_token_uri = "https://oauth2.googleapis.com/token"
 gcp_service_account_auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
-gcp_service_account_client_x509_cert_url = "https://www.googleapis.com/robot/v1/metadata/x509/mojiokoshi%40gen-lang-client-0653854891.iam.gserviceaccount.com"
+gcp_service_account_client_x509_cert_url = "<YOUR_CERT_URL>"
 
 # その他の設定
-GCS_BUCKET_NAME = "250728transcription-bucket"
-COMPANY_ACCESS_KEY = "tatsujiro25"''', language="toml")
+GCS_BUCKET_NAME = "<YOUR_GCS_BUCKET_NAME>"
+COMPANY_ACCESS_KEY = "tatsujiro25Koueki"''', language="toml")
                     
                     with st.expander("🔸 セクション形式（代替）"):
                         st.code('''[gcp_service_account]
 type = "service_account"
-project_id = "gen-lang-client-0653854891"
-private_key_id = "27887a0412001d91181210877e3c88d14977e65f"
-private_key = "-----BEGIN PRIVATE KEY-----\\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDO4Mio1jkcZviX\\nQiC8awDknwUHxIPD173ElFKBXVt17XsJjQMrDAmlFHk23Y1yM7uKtzkONjWNSqJ9\\ne8JWC1aE/mEegPzPkdUNOGFYiEJJ7fGpL826QWm5vGDbiWnV1zY1q/SFSeoyLacF\\nXzzum4kqEIIdxBNMMNiWR1/zmqd6AZ/zDSkOwLVxlcfzygTw9loSyS/Q1ofY5Vzw\\nUUPGoEufOWVy6sItxMc9ikEGkkB5a4kACmuLdYWa/17TC6FlLLkT76pvHEZD57sb\\n+vR58/frhaS+ZoPUMyIjGDxUAgcILctyogEjVE7/+FQvj632c2KZ0YgrX8Hh53Gx\\nZBg/ZvbXAgMBAAECggEAL6F/cagI9CodGC5IfTkhtoGKVfR/5epZLdZ8fH5zHV61\\nEkjeLt4RpmllUyWFeILCrjhrMYN3pvVFHiENaGQp4mrzD2PhUSUhaW7OsuSEZqMb\\nHbn84uJGplXh8wnbTTnEqGzT2pBfFHiAWPNJgyJaXU35t0K6srMYWtlKFTtJTgSB\\nv2jchhNjDwrSPkGCEkhhn9KKudxOo45rnrzR2qYIJkBRVvLDLO+/O1COPO0LRTEl\\ny7czEVSzEwxchvH3Rrnq964yBIoWtZ0cbgd4+6XIOgyOqA0FT0RsTgBlFLeQcdaT\\naArzAOxMrlMXlqpPynckveyZz+msiFrViV207+w16QKBgQDr0+fQdpVN4BmSX9BQ\\ngNs+TeyI+OL1V9JvlGHhntmLnaxjKLipwsDrArybp15UAoNiecMN98C4DraDz/M+\\npW38d+1YSsG9PLyOQWT9ZsxZF3ELIU+nzeipxc0sK8nYc1F5tPAVWF9axPTxkYen\\n2IjWBk5Na4T2Kflli8VeqRQDJQKBgQDgkvIKwWYAuua3jaJkaa9gPYV0QtYyFraL\\nWAaD14d0C2IXhtjv24BAjHKDIFbJFhvUQjpslTheDTxb2MG4OpwL5fpiykeDHKaR\\ndbl94ndhNfYD7eMKCA9VffmOmlJkRaVhFbEOFVBOQi096DEBijHAfbSa4xW2DWpT\\nQ9lsE2lvSwKBgQDDHKl4sgPJUJYXoqopUNMT80i18qVkM2rp4iwxjUmT17oeuDxA\\nR99xEOyXI5xJiWLGgNM+pTKPlayv1cb8l8Yt0dNO71rnhG7Ei5pQhVKgi2J9wOu0\\nfAn5HKwp1XjEWnSYa3kPT/RklvvJOYyw89gSq1jxePmi6QtsVn3PWbgy+QKBgBXM\\nDXQfy1+8xFICjEWEwIHt1rsvFY0tCTDDLXa0f7AyvqWb8Ahv3KXnO+IgTGweGjti\\n5jrNzPfL/xTHGB5iiezZuJDII2LFcCFkNMnUJlQoIaXF/ChoGdzpakR+FAspe2DN\\n8y5zwSSnZa7Bj6gfmq6dRN9XtS7DZJOKXVsRE0W7AoGBAJAe/2NLkynvIWfC2GSO\\npw48K5wGjOvBrRQ7F1U33g++uWBd8TTllIdo5alra0sgySYeWJdRD9FIknR20M2c\\nkLiKUbsnsBLxckCUuFfMeaWZTNQMwvOBUUaE1kTlGdpe25lOY1igzEKMgP9BXqoA\\nRZHgmigY14wDQpxLG1Ex1EuM\\n-----END PRIVATE KEY-----\\n"
-client_email = "mojiokoshi@gen-lang-client-0653854891.iam.gserviceaccount.com"
-client_id = "105257418930370464852"
+project_id = "<YOUR_PROJECT_ID>"
+private_key_id = "<YOUR_PRIVATE_KEY_ID>"
+private_key = "<YOUR_PRIVATE_KEY>"
+client_email = "<YOUR_CLIENT_EMAIL>"
+client_id = "<YOUR_CLIENT_ID>"
 auth_uri = "https://accounts.google.com/o/oauth2/auth"
 token_uri = "https://oauth2.googleapis.com/token"
 auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
-client_x509_cert_url = "https://www.googleapis.com/robot/v1/metadata/x509/mojiokoshi%40gen-lang-client-0653854891.iam.gserviceaccount.com"
+client_x509_cert_url = "<YOUR_CERT_URL>"
 
-GCS_BUCKET_NAME = "250728transcription-bucket"
-COMPANY_ACCESS_KEY = "tatsujiro25"''', language="toml")
+GCS_BUCKET_NAME = "<YOUR_GCS_BUCKET_NAME>"
+COMPANY_ACCESS_KEY = "tatsujiro25Koueki"''', language="toml")
             else:
                 st.error(f"**管理者へ**: 以下の場所に配置してください:\n`{credentials_path}`")
         
         # GCSバケット名（環境に応じて取得）
+        secret_bucket = ""
         if use_streamlit_secrets:
             try:
-                default_bucket = st.secrets.get("GCS_BUCKET_NAME", GCS_BUCKET_NAME)
-            except:
-                default_bucket = GCS_BUCKET_NAME
-        else:
-            default_bucket = GCS_BUCKET_NAME
+                secret_bucket = st.secrets.get("GCS_BUCKET_NAME", "").strip()
+            except (KeyError, AttributeError, TypeError):
+                secret_bucket = ""
+        env_bucket = os.getenv("GCS_BUCKET_NAME", "").strip()
+        default_bucket = secret_bucket or env_bucket or DEFAULT_GCS_BUCKET
             
         gcs_bucket = st.text_input(
             "GCSバケット名",
@@ -422,7 +422,7 @@ def process_transcription(uploaded_file, credentials_path, gcs_bucket, chunk_len
         os.unlink(input_file_path)
         # credentials_pathは固定ファイルなので削除しない
         
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         st.session_state.processing_status = "エラー"
         st.error(f"❌ **処理エラー**: {str(e)}")
         
@@ -435,9 +435,8 @@ def process_transcription(uploaded_file, credentials_path, gcs_bucket, chunk_len
             st.error(f"**認証方式**: {'Streamlit Secrets' if use_streamlit_secrets else 'ローカルファイル'}")
             st.error(f"**GCSバケット**: {gcs_bucket}")
             
-        logger.error(f"文字起こし処理エラー: {type(e).__name__}: {str(e)}")
-        import traceback
-        logger.error(f"詳細トレースバック: {traceback.format_exc()}")
+        logger.error("文字起こし処理エラー: %s: %s", type(e).__name__, str(e))
+        logger.error("詳細トレースバック: %s", traceback.format_exc())
 
 async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_length_ms, progress_bar, status_text, use_streamlit_secrets=False):
     """非同期文字起こし処理"""
@@ -452,19 +451,19 @@ async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_
         # 動画ファイルの場合は音声抽出
         if is_video:
             if not VIDEO_PROCESSING_AVAILABLE:
-                raise Exception("動画処理機能が利用できません。必要なライブラリ（moviepy/opencv）がインストールされていない可能性があります。")
+                raise RuntimeError("動画処理機能が利用できません。必要なライブラリ（moviepy/opencv）がインストールされていない可能性があります。")
             
             status_text.text("🎬 動画から音声を抽出中...")
             progress_bar.progress(20)
             
             # 追加の安全チェック
-            video_processor = VideoProcessor()
-            if not video_processor.video_processing_available:
-                raise Exception("動画処理ライブラリが実行時に利用できません（moviepy/opencv未インストール）")
-            audio_file_path = await video_processor.process_video_for_transcription(input_file_path)
+            runtime_video_processor = VideoProcessor()
+            if not runtime_video_processor.video_processing_available:
+                raise RuntimeError("動画処理ライブラリが実行時に利用できません（moviepy/opencv未インストール）")
+            audio_file_path = await runtime_video_processor.process_video_for_transcription(input_file_path)
             
             if not audio_file_path:
-                raise Exception("動画からの音声抽出に失敗しました")
+                raise RuntimeError("動画からの音声抽出に失敗しました")
         
         # 音声文字起こしサービスを初期化
         status_text.text("🤖 文字起こしサービス初期化中...")
@@ -492,9 +491,9 @@ async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_
                     service_account_info=service_account_info,
                     gcs_bucket_name=gcs_bucket
                 )
-            except Exception as e:
-                logger.error(f"Streamlit Secrets認証エラー: {e}")
-                raise Exception(f"Streamlit Secrets認証に失敗しました: {str(e)}")
+            except (KeyError, ValueError, TypeError) as e:
+                logger.error("Streamlit Secrets認証エラー: %s", e)
+                raise RuntimeError(f"Streamlit Secrets認証に失敗しました: {str(e)}") from e
         else:
             # ローカル環境：ファイルから認証
             logger.info("ローカルファイル認証を使用")
@@ -530,14 +529,14 @@ async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_
             return result
         else:
             logger.error("音声ファイル処理結果が空です")
-            logger.error(f"処理対象: {input_file_path}")
-            logger.error(f"ファイル存在確認: {os.path.exists(input_file_path)}")
+            logger.error("処理対象: %s", input_file_path)
+            logger.error("ファイル存在確認: %s", os.path.exists(input_file_path))
             if os.path.exists(input_file_path):
-                logger.error(f"ファイルサイズ: {os.path.getsize(input_file_path)} bytes")
-            raise Exception(f"文字起こし処理に失敗しました（結果が空）- ファイル: {os.path.basename(input_file_path)}")
+                logger.error("ファイルサイズ: %s bytes", os.path.getsize(input_file_path))
+            raise RuntimeError(f"文字起こし処理に失敗しました（結果が空）- ファイル: {os.path.basename(input_file_path)}")
         
-    except Exception as e:
-        logger.error(f"非同期文字起こしエラー: {str(e)}")
+    except (RuntimeError, ValueError, OSError, KeyError, TypeError) as e:
+        logger.error("非同期文字起こしエラー: %s", str(e))
         return None
 
 def calculate_optimal_chunk_length(uploaded_file, is_video: bool = False):
@@ -558,24 +557,24 @@ def calculate_optimal_chunk_length(uploaded_file, is_video: bool = False):
     if is_video:
         if file_size_mb < 100:
             chunk_length_ms = 3 * 60 * 1000  # 3分チャンク
-            logger.info(f"小動画検出 ({file_size_mb:.1f}MB) -> 3分チャンク")
+            logger.info("小動画検出 (%.1fMB) -> 3分チャンク", file_size_mb)
         elif file_size_mb < 300:
             chunk_length_ms = 2 * 60 * 1000  # 2分チャンク
-            logger.info(f"中動画検出 ({file_size_mb:.1f}MB) -> 2分チャンク")
+            logger.info("中動画検出 (%.1fMB) -> 2分チャンク", file_size_mb)
         else:
             chunk_length_ms = 90 * 1000      # 1.5分チャンク
-            logger.warning(f"大動画検出 ({file_size_mb:.1f}MB) -> 1.5分チャンク（メモリ制限対策）")
+            logger.warning("大動画検出 (%.1fMB) -> 1.5分チャンク（メモリ制限対策）", file_size_mb)
     else:
         # 音声ファイルの場合（既存ロジック）
         if file_size_mb < 50:
             chunk_length_ms = 5 * 60 * 1000  # 300,000ms
-            logger.info(f"小ファイル検出 ({file_size_mb:.1f}MB) -> 5分チャンク")
+            logger.info("小ファイル検出 (%.1fMB) -> 5分チャンク", file_size_mb)
         elif file_size_mb < 150:
             chunk_length_ms = 3 * 60 * 1000   # 180,000ms
-            logger.info(f"中ファイル検出 ({file_size_mb:.1f}MB) -> 3分チャンク")
+            logger.info("中ファイル検出 (%.1fMB) -> 3分チャンク", file_size_mb)
         else:
             chunk_length_ms = 2 * 60 * 1000   # 120,000ms
-            logger.warning(f"大ファイル検出 ({file_size_mb:.1f}MB) -> 2分チャンク（メモリ制限対策）")
+            logger.warning("大ファイル検出 (%.1fMB) -> 2分チャンク（メモリ制限対策）", file_size_mb)
             logger.warning("⚠️ 大容量ファイルはStreamlit Cloudでの処理制限があります")
     
     return chunk_length_ms
@@ -584,14 +583,25 @@ def check_company_access():
     """社内専用アクセス認証"""
     
     # アクセスキー（環境に応じて取得）
+    access_key_for_auth = ""
     try:
         # Secrets環境かどうかをチェック
         if hasattr(st, 'secrets') and len(st.secrets) > 0:
-            access_key_for_auth = st.secrets.get("COMPANY_ACCESS_KEY", COMPANY_ACCESS_KEY)
-        else:
-            access_key_for_auth = COMPANY_ACCESS_KEY
-    except:
-        access_key_for_auth = COMPANY_ACCESS_KEY
+            access_key_for_auth = st.secrets.get("COMPANY_ACCESS_KEY", "").strip()
+    except (AttributeError, KeyError, TypeError):
+        access_key_for_auth = ""
+
+    # Secretsに無い場合は環境変数を参照
+    if not access_key_for_auth:
+        access_key_for_auth = os.getenv("COMPANY_ACCESS_KEY", "").strip()
+
+    # それでも無い場合はデフォルト値（環境経由のみに限定）
+    if not access_key_for_auth:
+        access_key_for_auth = DEFAULT_COMPANY_ACCESS_KEY
+
+    if not access_key_for_auth:
+        st.error("❌ アクセスキーが設定されていません。環境変数またはStreamlit SecretsにCOMPANY_ACCESS_KEYを設定してください。")
+        st.stop()
     
     # セッション状態の初期化
     if 'authenticated' not in st.session_state:
@@ -764,7 +774,7 @@ def check_company_access():
         """, unsafe_allow_html=True)
         
         # 中央寄せのログインフォーム（横幅拡大版）
-        col1, col2, col3 = st.columns([0.5, 3, 0.5])
+        _, col2, _ = st.columns([0.5, 3, 0.5])
         
         with col2:
             st.markdown('<div class="login-container">', unsafe_allow_html=True)
@@ -804,7 +814,7 @@ def check_company_access():
             )
             
             # ログインボタン
-            col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
+            _, col_btn2, _ = st.columns([1, 2, 1])
             with col_btn2:
                 login_button = st.button("🚀 ログイン", use_container_width=True, type="primary")
             
