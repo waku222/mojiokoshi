@@ -32,8 +32,9 @@ from shared.transcription_service import AudioTranscriptionService
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# 環境から取得するデフォルト値（ハードコード禁止）
-DEFAULT_GCS_BUCKET = os.getenv("GCS_BUCKET_NAME", "").strip()
+# 環境から取得するデフォルト値
+# GCSバケット名のデフォルト: 環境変数 > デフォルト値の優先順位
+DEFAULT_GCS_BUCKET = os.getenv("GCS_BUCKET_NAME", "mojiokoshi-audio-storage").strip()
 DEFAULT_COMPANY_ACCESS_KEY = os.getenv("COMPANY_ACCESS_KEY", "tatsujiro25Koueki").strip()
 
 # 動画処理の条件付きインポート（詳細診断版）
@@ -213,6 +214,7 @@ COMPANY_ACCESS_KEY = "tatsujiro25Koueki"''', language="toml")
                 st.error(f"**管理者へ**: 以下の場所に配置してください:\n`{credentials_path}`")
         
         # GCSバケット名（環境に応じて取得）
+        # 優先順位: Streamlit Secrets > 環境変数 > デフォルト値
         secret_bucket = ""
         if use_streamlit_secrets:
             try:
@@ -225,14 +227,16 @@ COMPANY_ACCESS_KEY = "tatsujiro25Koueki"''', language="toml")
         gcs_bucket = st.text_input(
             "GCSバケット名",
             value=default_bucket,
-            help="長時間音声処理用のGCSバケット名"
+            help="長時間音声処理用のGCSバケット名（デフォルト: mojiokoshi-audio-storage）",
+            placeholder="例: mojiokoshi-audio-storage"
         )
         
         # システム情報
         with st.expander("💻 システム情報"):
+            display_bucket = gcs_bucket if gcs_bucket.strip() else DEFAULT_GCS_BUCKET
             st.markdown(f"""
             **認証状態**: {"✅ OK" if credentials_exists else "❌ 未設定"}
-            **GCSバケット**: {gcs_bucket}
+            **GCSバケット**: {display_bucket}
             **処理方式**: 自動最適化
             """)
         
@@ -325,8 +329,11 @@ COMPANY_ACCESS_KEY = "tatsujiro25Koueki"''', language="toml")
                     st.error("管理者にお問い合わせください")
                     return
                 
-                if not gcs_bucket.strip():
+                # GCSバケット名のバリデーション（デフォルト値を使用）
+                final_gcs_bucket = gcs_bucket.strip() if gcs_bucket.strip() else DEFAULT_GCS_BUCKET
+                if not final_gcs_bucket:
                     st.error("❌ GCSバケット名を入力してください")
+                    st.info("💡 サイドバーの「GCSバケット名」欄に入力してください")
                     return
                 
                 # 自動的に最適なチャンク長を決定（動画・音声対応）
@@ -336,7 +343,7 @@ COMPANY_ACCESS_KEY = "tatsujiro25Koueki"''', language="toml")
                 process_transcription(
                     uploaded_file, 
                     credentials_path if not use_streamlit_secrets else None, 
-                    gcs_bucket, 
+                    final_gcs_bucket,  # デフォルト値を適用したバケット名を使用
                     optimal_chunk_length_ms,
                     use_streamlit_secrets
                 )
