@@ -22,12 +22,19 @@ except ImportError:
     logger.warning("OpenCV not available - video preview disabled")
 
 try:
-    from moviepy.editor import VideoFileClip
+    # MoviePy 2.x 対応: moviepy.editor ではなく moviepy から直接インポート
+    try:
+        from moviepy.editor import VideoFileClip
+    except (ImportError, ModuleNotFoundError):
+        # MoviePy 2.x の場合
+        from moviepy import VideoFileClip
     MOVIEPY_AVAILABLE = True
     logger.info("MoviePy import successful")
-except ImportError:
+except ImportError as e:
     MOVIEPY_AVAILABLE = False
     logger.warning("MoviePy not available - video processing disabled")
+    logger.warning(f"MoviePy import error details: {str(e)}")
+    logger.info("To fix: pip install moviepy>=2.0.0 imageio>=2.31.1 decorator>=5.1.1")
 
 try:
     import ffmpeg

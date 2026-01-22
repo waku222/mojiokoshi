@@ -4,6 +4,7 @@ import tempfile
 from pathlib import Path
 from typing import Optional
 import logging
+import warnings
 
 # Google Cloud関連
 from google.cloud import speech
@@ -18,6 +19,9 @@ from pydub.utils import make_chunks
 # ログ設定
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# RSA警告を抑制（Google認証の不完全なキーファイル警告）
+warnings.filterwarnings('ignore', message='You have provided a malformed keyfile')
 
 class AudioTranscriptionService:
     def __init__(self, 

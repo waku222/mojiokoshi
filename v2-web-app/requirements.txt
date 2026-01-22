@@ -10,10 +10,13 @@ google-auth>=2.22.0
 # 音声処理関連（基本機能）
 pydub>=0.25.1
 
-# 動画処理関連
+# 動画処理関連（Python 3.13互換性対応）
 opencv-python-headless>=4.8.0
-moviepy>=1.0.3
+moviepy>=2.0.0
+imageio>=2.31.1
 imageio-ffmpeg>=0.4.9
+decorator>=5.1.1
+proglog>=0.1.10
 
 # Python 3.13互換性対応（条件付きインストール）
 audioop-lts; python_version >= '3.13'
@@ -28,5 +31,6 @@ pathlib2>=2.3.7; python_version < '3.4'
 
 # Streamlit Cloud最適化版
 # - opencv-python-headless: GUI不要のOpenCV
-# - moviepy: Streamlit Cloud標準サポート
+# - moviepy 2.0.0: Python 3.13互換性改善
+# - decorator/proglog: MoviePyの依存関係
 # - audioop-lts: Python 3.13互換性

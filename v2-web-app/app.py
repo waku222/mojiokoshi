@@ -469,16 +469,26 @@ async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_
         status_text.text("🤖 文字起こしサービス初期化中...")
         progress_bar.progress(30)
         
-        # 🔧 シンプルな認証方式選択（Base64エラー回避版）
+        # 🔧 シンプルな認証方式選択（Base64エラー回避版 + RSA警告抑制）
+        import warnings
+        
+        # RSA警告を抑制（Google認証の不完全なキーファイル警告）
+        warnings.filterwarnings('ignore', message='You have provided a malformed keyfile')
+        
         if use_streamlit_secrets:
             # Streamlit Cloud環境：Secretsから認証情報を取得
             logger.info("Streamlit Secrets認証を使用")
             try:
                 # シンプルなSecrets取得（フラット形式のみ）
+                # private_key の改行文字を正規化
+                private_key = st.secrets["gcp_service_account_private_key"]
+                if "\\n" in private_key:
+                    private_key = private_key.replace("\\n", "\n")
+                
                 service_account_info = {
                     "type": st.secrets["gcp_service_account_type"],
                     "project_id": st.secrets["gcp_service_account_project_id"],
-                    "private_key": st.secrets["gcp_service_account_private_key"],
+                    "private_key": private_key,
                     "client_email": st.secrets["gcp_service_account_client_email"],
                     "private_key_id": st.secrets.get("gcp_service_account_private_key_id", ""),
                     "client_id": st.secrets.get("gcp_service_account_client_id", ""),
@@ -487,6 +497,11 @@ async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_
                     "auth_provider_x509_cert_url": st.secrets.get("gcp_service_account_auth_provider_x509_cert_url", "https://www.googleapis.com/oauth2/v1/certs"),
                     "client_x509_cert_url": st.secrets.get("gcp_service_account_client_x509_cert_url", "")
                 }
+                
+                # 認証情報の検証（デバッグ用）
+                logger.info("認証情報検証 - Project ID: %s", service_account_info["project_id"])
+                logger.info("認証情報検証 - Client Email: %s", service_account_info["client_email"])
+                
                 transcription_service = AudioTranscriptionService(
                     service_account_info=service_account_info,
                     gcs_bucket_name=gcs_bucket
