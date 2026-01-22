@@ -289,37 +289,55 @@ COMPANY_ACCESS_KEY = "tatsujiro25Koueki"''', language="toml")
             file_type = "動画" if is_video else "音声"
             st.info(f"**ファイル情報**  \nファイル名: {uploaded_file.name}  \nタイプ: {file_type}ファイル  \nサイズ: {file_size_mb:.2f}MB")
             
-            # 大容量ファイル警告（動画・音声両対応）
-            warning_threshold = 300 if is_video else 200  # 動画は300MB、音声は200MBで警告
+            # Streamlit Cloud メモリ制限対策
+            # 無料プランでは1GBのメモリ制限があるため、大きなファイルは処理できない
+            max_file_size = 100  # MB - これ以上は処理を拒否
+            warning_threshold = 50  # MB - 警告を表示
+            
+            if file_size_mb > max_file_size:
+                file_type_name = "動画" if is_video else "音声"
+                st.error(f"❌ **ファイルサイズ超過** ({file_size_mb:.1f}MB)")
+                st.error(f"**Streamlit Cloud無料枠では{max_file_size}MB以上の{file_type_name}ファイルは処理できません**")
+                st.error("**メモリ制限（1GB）によりアプリがクラッシュする可能性があります**")
+                st.markdown("""
+                ### 📋 推奨対策
+                
+                **音声ファイルの場合:**
+                - **ファイル分割**: 30分〜1時間単位で複数ファイルに分割
+                - **音質圧縮**: ビットレートを128kbps以下に設定してMP3で再エンコード
+                - **サンプリングレート**: 16kHz〜22kHzに変換
+                
+                **動画ファイルの場合:**
+                - **事前に音声抽出**: FFmpegで音声のみをMP3に変換
+                  ```
+                  ffmpeg -i input.mp4 -vn -acodec libmp3lame -b:a 128k output.mp3
+                  ```
+                - **動画分割**: 5〜10分単位で分割
+                
+                **ツール例:**
+                - [Audacity](https://www.audacityteam.org/) - 無料の音声編集ソフト
+                - [FFmpeg](https://ffmpeg.org/) - コマンドライン変換ツール
+                - [Online Audio Converter](https://online-audio-converter.com/) - オンライン変換
+                """)
+                return
             
             if file_size_mb > warning_threshold:
                 file_type_name = "動画" if is_video else "音声"
                 st.warning(f"⚠️ **大容量{file_type_name}ファイル警告** ({file_size_mb:.1f}MB)")
-                st.warning(f"**Streamlit Cloud無料枠では{warning_threshold}MB以上の{file_type_name}ファイル処理に制限があります**")
+                st.warning(f"**50MB以上のファイルは処理に時間がかかり、メモリ不足でエラーになる可能性があります**")
                 
-                if is_video:
-                    st.warning("**動画ファイル推奨対策:**")
-                    st.markdown("""
-                    - **動画圧縮**: H.264/MP4形式で再エンコード
-                    - **解像度削減**: 720p以下に変更
-                    - **フレームレート削減**: 30fps以下に変更
-                    - **動画分割**: 5-10分単位で分割
-                    - **音声のみ抽出**: 事前にMP3に変換
-                    """)
-                else:
-                    st.warning("**音声ファイル推奨対策:**")
-                    st.markdown("""
-                    - **音声ファイル圧縮**: MP3形式で再エンコード
-                    - **ファイル分割**: 複数の小さなファイルに分割
-                    - **サンプリング**: より低いサンプリングレートで変換
-                    """)
+                st.markdown("""
+                ### ⚠️ 注意事項
+                - 処理に数分〜十数分かかる場合があります
+                - メモリ不足でアプリがクラッシュする可能性があります
+                - 可能であれば、50MB以下に分割することをお勧めします
+                """)
                 
                 if st.button("⚠️ 理解した上で処理を続行", type="secondary"):
                     st.session_state.large_file_confirmed = True
                 
                 if not st.session_state.get('large_file_confirmed', False):
-                    recommended_size = "100MB" if is_video else "50MB"
-                    st.info(f"💡 **推奨**: {recommended_size}以下の小さなファイルから試すことをお勧めします")
+                    st.info(f"💡 **推奨**: 50MB以下の小さなファイルに分割してください")
                     return
             
             # 処理ボタン
@@ -565,6 +583,9 @@ def calculate_optimal_chunk_length(uploaded_file, is_video: bool = False):
     """
     アップロードされたファイルに基づいて最適なチャンク長を自動計算
     
+    Streamlit Cloud のメモリ制限（1GB）に対応するため、
+    ファイルサイズに応じてより小さなチャンクを使用します。
+    
     Args:
         uploaded_file: Streamlitアップロードファイルオブジェクト
         is_video: 動画ファイルかどうか
@@ -577,27 +598,29 @@ def calculate_optimal_chunk_length(uploaded_file, is_video: bool = False):
     
     # 動画の場合は、より慎重なチャンク設定
     if is_video:
-        if file_size_mb < 100:
+        if file_size_mb < 30:
             chunk_length_ms = 3 * 60 * 1000  # 3分チャンク
             logger.info("小動画検出 (%.1fMB) -> 3分チャンク", file_size_mb)
-        elif file_size_mb < 300:
+        elif file_size_mb < 70:
             chunk_length_ms = 2 * 60 * 1000  # 2分チャンク
             logger.info("中動画検出 (%.1fMB) -> 2分チャンク", file_size_mb)
         else:
-            chunk_length_ms = 90 * 1000      # 1.5分チャンク
-            logger.warning("大動画検出 (%.1fMB) -> 1.5分チャンク（メモリ制限対策）", file_size_mb)
+            chunk_length_ms = 60 * 1000      # 1分チャンク
+            logger.warning("大動画検出 (%.1fMB) -> 1分チャンク（メモリ制限対策）", file_size_mb)
     else:
-        # 音声ファイルの場合（既存ロジック）
-        if file_size_mb < 50:
-            chunk_length_ms = 5 * 60 * 1000  # 300,000ms
+        # 音声ファイルの場合（Streamlit Cloud最適化版）
+        if file_size_mb < 20:
+            chunk_length_ms = 5 * 60 * 1000  # 5分チャンク（小ファイル）
             logger.info("小ファイル検出 (%.1fMB) -> 5分チャンク", file_size_mb)
-        elif file_size_mb < 150:
-            chunk_length_ms = 3 * 60 * 1000   # 180,000ms
+        elif file_size_mb < 50:
+            chunk_length_ms = 3 * 60 * 1000  # 3分チャンク
             logger.info("中ファイル検出 (%.1fMB) -> 3分チャンク", file_size_mb)
-        else:
-            chunk_length_ms = 2 * 60 * 1000   # 120,000ms
+        elif file_size_mb < 80:
+            chunk_length_ms = 2 * 60 * 1000  # 2分チャンク
             logger.warning("大ファイル検出 (%.1fMB) -> 2分チャンク（メモリ制限対策）", file_size_mb)
-            logger.warning("⚠️ 大容量ファイルはStreamlit Cloudでの処理制限があります")
+        else:
+            chunk_length_ms = 60 * 1000      # 1分チャンク（最小）
+            logger.warning("特大ファイル検出 (%.1fMB) -> 1分チャンク（メモリ制限対策）", file_size_mb)
     
     return chunk_length_ms
 
