@@ -23,17 +23,22 @@ except ImportError:
 
 try:
     # MoviePy 2.x 対応: moviepy.editor ではなく moviepy から直接インポート
+    import traceback
     try:
         from moviepy.editor import VideoFileClip
-    except (ImportError, ModuleNotFoundError):
+        logger.info("MoviePy import successful (moviepy.editor)")
+    except (ImportError, ModuleNotFoundError) as e1:
+        logger.info(f"moviepy.editor not available: {str(e1)}, trying moviepy directly")
         # MoviePy 2.x の場合
         from moviepy import VideoFileClip
+        logger.info("MoviePy import successful (moviepy direct)")
     MOVIEPY_AVAILABLE = True
-    logger.info("MoviePy import successful")
-except ImportError as e:
+except Exception as e:
     MOVIEPY_AVAILABLE = False
-    logger.warning("MoviePy not available - video processing disabled")
-    logger.warning(f"MoviePy import error details: {str(e)}")
+    logger.error("MoviePy not available - video processing disabled")
+    logger.error(f"MoviePy import error type: {type(e).__name__}")
+    logger.error(f"MoviePy import error details: {str(e)}")
+    logger.error(f"MoviePy traceback: {traceback.format_exc()}")
     logger.info("To fix: pip install moviepy>=2.0.0 imageio>=2.31.1 decorator>=5.1.1")
 
 try:
