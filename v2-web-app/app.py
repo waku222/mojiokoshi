@@ -828,11 +828,12 @@ def check_company_access():
             # アクセスキー入力（見やすく改良）
             st.markdown('<p class="access-key-label">🔑 アクセスキーを入力してください</p>', unsafe_allow_html=True)
             access_key = st.text_input(
-                "",
+                "アクセスキー",
                 type="password",
                 placeholder="社内配布されたキーを入力",
                 help="社内で配布されているアクセスキーを入力してください",
-                key="access_key_input"
+                key="access_key_input",
+                label_visibility="collapsed"
             )
             
             # ログインボタン

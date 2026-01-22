@@ -71,6 +71,8 @@ Desktop.ini
 
 # Streamlit
 .streamlit/secrets.toml
+**/.streamlit/secrets.toml
+v2-web-app/.streamlit/secrets.toml
 
 # 音声・動画ファイル（大容量ファイル）
 *.wav
