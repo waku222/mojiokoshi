@@ -30,14 +30,14 @@ class AudioTranscriptionService:
     Speech-to-Text v2 API (Chirp) を使用した音声文字起こしサービス
     """
     
-    # v2 APIで利用可能なリージョン
+    # v2 APIで利用可能なリージョン（Chirpモデルはus-central1で最も安定）
     SUPPORTED_REGIONS = ["us-central1", "eu-west4", "asia-southeast1"]
     
     def __init__(self, 
                  service_account_path: str = None,
                  gcs_bucket_name: str = None,
                  service_account_info: dict = None,
-                 location: str = "asia-southeast1"):
+                 location: str = "us-central1"):
         """
         音声文字起こしサービス（ローカルWAVファイル専用）- v2 API対応
         
@@ -45,7 +45,7 @@ class AudioTranscriptionService:
             service_account_path: Google Cloud Speech-to-Text用のサービスアカウントキーファイルパス
             gcs_bucket_name: Google Cloud Storage バケット名（長時間音声処理用）
             service_account_info: サービスアカウントの認証情報（辞書形式）
-            location: v2 APIのリージョン（デフォルト: asia-southeast1）
+            location: v2 APIのリージョン（デフォルト: us-central1 - Chirpモデル推奨）
         """
         self.service_account_path = service_account_path
         self.gcs_bucket_name = gcs_bucket_name
@@ -305,16 +305,24 @@ class AudioTranscriptionService:
             Optional[str]: 文字起こし結果
         """
         try:
-            logger.info(f"チャンク {chunk_index} の文字起こし開始 (Chirpモデル)")
+            logger.info(f"チャンク {chunk_index} の文字起こし開始 (v2 API - Chirpモデル)")
+            logger.info(f"GCS URI: {gcs_uri}")
+            logger.info(f"Recognizer: {self.recognizer_path}")
             
             # v2 API用の認識設定
+            # 明示的なエンコーディング設定を使用
+            explicit_decoding_config = cloud_speech.ExplicitDecodingConfig(
+                encoding=cloud_speech.ExplicitDecodingConfig.AudioEncoding.LINEAR16,
+                sample_rate_hertz=16000,
+                audio_channel_count=1,
+            )
+            
             config = cloud_speech.RecognitionConfig(
-                auto_decoding_config=cloud_speech.AutoDetectDecodingConfig(),
+                explicit_decoding_config=explicit_decoding_config,
                 language_codes=["ja-JP"],  # 日本語
                 model="chirp",  # Chirpモデル（最新の高精度モデル）
                 features=cloud_speech.RecognitionFeatures(
                     enable_automatic_punctuation=True,  # 自動句読点
-                    enable_word_time_offsets=True,  # 単語レベルのタイムスタンプ
                 ),
             )
             
@@ -335,6 +343,7 @@ class AudioTranscriptionService:
             )
             
             # ブロッキング処理をスレッドで実行
+            logger.info(f"チャンク {chunk_index}: batch_recognize リクエスト送信中...")
             operation = await asyncio.to_thread(
                 self.speech_client.batch_recognize,
                 request=request
@@ -345,19 +354,60 @@ class AudioTranscriptionService:
             # operation.result自体もブロッキングのためスレッド実行
             response = await asyncio.to_thread(operation.result, timeout=3600)  # 最大1時間待機
             
-            # 結果を結合
-            transcript = ""
-            for file_result in response.results.values():
-                if hasattr(file_result, 'inline_result') and file_result.inline_result:
-                    for result in file_result.inline_result.transcript.results:
-                        for alternative in result.alternatives:
-                            transcript += alternative.transcript + " "
+            logger.info(f"チャンク {chunk_index}: レスポンス受信完了")
             
-            logger.info(f"チャンク {chunk_index} の文字起こし完了")
-            return transcript.strip()
+            # 結果を結合（より堅牢なパース処理）
+            transcript = ""
+            
+            # レスポンス構造をログ出力（デバッグ用）
+            logger.info(f"チャンク {chunk_index}: レスポンスタイプ = {type(response)}")
+            
+            if hasattr(response, 'results') and response.results:
+                logger.info(f"チャンク {chunk_index}: results キー = {list(response.results.keys())}")
+                
+                for uri, file_result in response.results.items():
+                    logger.info(f"チャンク {chunk_index}: 処理中 URI = {uri}")
+                    
+                    # inline_result からトランスクリプトを取得
+                    if hasattr(file_result, 'inline_result') and file_result.inline_result:
+                        inline_result = file_result.inline_result
+                        logger.info(f"チャンク {chunk_index}: inline_result 取得成功")
+                        
+                        if hasattr(inline_result, 'transcript') and inline_result.transcript:
+                            transcript_obj = inline_result.transcript
+                            logger.info(f"チャンク {chunk_index}: transcript オブジェクト取得成功")
+                            
+                            if hasattr(transcript_obj, 'results') and transcript_obj.results:
+                                for result in transcript_obj.results:
+                                    if hasattr(result, 'alternatives') and result.alternatives:
+                                        for alternative in result.alternatives:
+                                            if hasattr(alternative, 'transcript') and alternative.transcript:
+                                                transcript += alternative.transcript + " "
+                                                logger.info(f"チャンク {chunk_index}: トランスクリプト追加: {alternative.transcript[:50]}...")
+                    
+                    # cloud_storage_result の場合（GCSに保存された結果）
+                    elif hasattr(file_result, 'cloud_storage_result') and file_result.cloud_storage_result:
+                        logger.info(f"チャンク {chunk_index}: cloud_storage_result が返されました（インライン結果なし）")
+                    
+                    # error の場合
+                    elif hasattr(file_result, 'error') and file_result.error:
+                        logger.error(f"チャンク {chunk_index}: エラー = {file_result.error}")
+            else:
+                logger.warning(f"チャンク {chunk_index}: results が空または存在しません")
+            
+            final_transcript = transcript.strip()
+            
+            if final_transcript:
+                logger.info(f"チャンク {chunk_index} の文字起こし完了 - 文字数: {len(final_transcript)}")
+            else:
+                logger.warning(f"チャンク {chunk_index} の文字起こし結果が空です")
+            
+            return final_transcript if final_transcript else None
             
         except Exception as e:
             logger.error(f"チャンク {chunk_index} の文字起こしエラー: {str(e)}")
+            import traceback
+            logger.error(f"スタックトレース: {traceback.format_exc()}")
             return None
     
     async def process_audio_chunks_parallel(self, chunk_files: list) -> list:
@@ -386,7 +436,7 @@ class AudioTranscriptionService:
             tasks.append(task)
         
         # 同時実行数を制限（APIレート制限対策）
-        semaphore = asyncio.Semaphore(5)  # 最大5並行
+        semaphore = asyncio.Semaphore(3)  # 最大3並行（v2 APIの安定性のため減少）
         
         async def limited_transcribe(task):
             async with semaphore:
@@ -456,6 +506,8 @@ class AudioTranscriptionService:
             logger.info("音声ファイルの文字起こし処理を開始 (Speech-to-Text v2 API - Chirp)")
             logger.info(f"入力ファイル: {audio_path}")
             logger.info(f"出力ファイル: {output_path}")
+            logger.info(f"リージョン: {self.location}")
+            logger.info(f"プロジェクトID: {self.project_id}")
             
             # 1. 音声ファイルをWAV形式に変換・最適化（必要な場合のみ）
             if not await self.convert_to_wav_if_needed(audio_path, wav_path):
@@ -466,13 +518,20 @@ class AudioTranscriptionService:
             if not chunk_files:
                 raise Exception("音声分割に失敗")
             
+            logger.info(f"処理するチャンク数: {len(chunk_files)}")
+            
             # 3. 並行処理で文字起こし実行
             transcripts = await self.process_audio_chunks_parallel(chunk_files)
             
-            # 4. 結果を結合
-            final_transcript = "\n".join([t for t in transcripts if t])
+            # 4. 結果を結合（Noneを除外）
+            valid_transcripts = [t for t in transcripts if t]
+            logger.info(f"有効な文字起こし結果: {len(valid_transcripts)}/{len(transcripts)} チャンク")
+            
+            final_transcript = "\n".join(valid_transcripts)
             
             if not final_transcript.strip():
+                logger.error("全てのチャンクで文字起こし結果が空でした")
+                logger.error(f"transcripts: {transcripts}")
                 raise Exception("文字起こし結果が空です")
             
             # 5. 結果をローカルに保存
@@ -513,10 +572,11 @@ async def main():
     OUTPUT_FILE_PATH = "./transcription_result.txt"
     
     # サービス初期化（v2 API - Chirpモデル）
+    # us-central1 リージョンを使用（Chirpモデルが最も安定）
     service = AudioTranscriptionService(
         service_account_path=SERVICE_ACCOUNT_PATH,
         gcs_bucket_name=GCS_BUCKET_NAME,
-        location="asia-southeast1"  # アジア圏に近いリージョン
+        location="us-central1"
     )
     
     try:
