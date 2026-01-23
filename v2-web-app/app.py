@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 # GCSバケット名のデフォルト: 環境変数 > デフォルト値の優先順位
 DEFAULT_GCS_BUCKET = os.getenv("GCS_BUCKET_NAME", "250728transcription-bucket").strip()
 DEFAULT_COMPANY_ACCESS_KEY = os.getenv("COMPANY_ACCESS_KEY", "tatsujiro25Koueki").strip()
+DEFAULT_SPEECH_LOCATION = os.getenv("GCP_SPEECH_LOCATION", "us-central1").strip()
 
 # 動画処理の条件付きインポート（詳細診断版）
 try:
@@ -500,6 +501,11 @@ async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_
         # RSA警告を抑制（Google認証の不完全なキーファイル警告）
         warnings.filterwarnings('ignore', message='You have provided a malformed keyfile')
         
+        speech_location = DEFAULT_SPEECH_LOCATION
+        if use_streamlit_secrets:
+            speech_location = st.secrets.get("gcp_speech_location", DEFAULT_SPEECH_LOCATION)
+        logger.info("Speech-to-Text リージョン設定: %s", speech_location)
+
         if use_streamlit_secrets:
             # Streamlit Cloud環境：Secretsから認証情報を取得
             logger.info("Streamlit Secrets認証を使用")
@@ -529,7 +535,8 @@ async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_
                 
                 transcription_service = AudioTranscriptionService(
                     service_account_info=service_account_info,
-                    gcs_bucket_name=gcs_bucket
+                    gcs_bucket_name=gcs_bucket,
+                    location=speech_location
                 )
             except (KeyError, ValueError, TypeError) as e:
                 logger.error("Streamlit Secrets認証エラー: %s", e)
@@ -539,7 +546,8 @@ async def async_transcribe(input_file_path, credentials_path, gcs_bucket, chunk_
             logger.info("ローカルファイル認証を使用")
             transcription_service = AudioTranscriptionService(
                 service_account_path=credentials_path,
-                gcs_bucket_name=gcs_bucket
+                gcs_bucket_name=gcs_bucket,
+                location=speech_location
             )
         
         # 出力用の一時ファイル

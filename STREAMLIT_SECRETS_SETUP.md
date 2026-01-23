@@ -15,6 +15,9 @@ COMPANY_ACCESS_KEY = "tatsujiro25Koueki"
 # GCS設定
 GCS_BUCKET_NAME = "250728transcription-bucket"
 
+# Speech-to-Text v2 リージョン（省略時 us-central1）
+gcp_speech_location = "us-central1"
+
 # サービスアカウント設定（フラット形式）
 gcp_service_account_type = "service_account"
 gcp_service_account_project_id = "gen-lang-client-0653854891"
