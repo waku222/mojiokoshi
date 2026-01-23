@@ -6,10 +6,12 @@ from typing import Optional
 import logging
 import warnings
 
-# Google Cloud関連
-from google.cloud import speech
+# Google Cloud関連 - Speech-to-Text v2 API
+from google.cloud.speech_v2 import SpeechClient
+from google.cloud.speech_v2.types import cloud_speech
 from google.cloud import storage
 from google.oauth2 import service_account
+from google.api_core.client_options import ClientOptions
 import json
 
 # 音声処理関連
@@ -24,34 +26,76 @@ logger = logging.getLogger(__name__)
 warnings.filterwarnings('ignore', message='You have provided a malformed keyfile')
 
 class AudioTranscriptionService:
+    """
+    Speech-to-Text v2 API (Chirp) を使用した音声文字起こしサービス
+    """
+    
+    # v2 APIで利用可能なリージョン
+    SUPPORTED_REGIONS = ["us-central1", "eu-west4", "asia-southeast1"]
+    
     def __init__(self, 
                  service_account_path: str = None,
                  gcs_bucket_name: str = None,
-                 service_account_info: dict = None):
+                 service_account_info: dict = None,
+                 location: str = "asia-southeast1"):
         """
-        音声文字起こしサービス（ローカルWAVファイル専用）
+        音声文字起こしサービス（ローカルWAVファイル専用）- v2 API対応
         
         Args:
             service_account_path: Google Cloud Speech-to-Text用のサービスアカウントキーファイルパス
             gcs_bucket_name: Google Cloud Storage バケット名（長時間音声処理用）
             service_account_info: サービスアカウントの認証情報（辞書形式）
+            location: v2 APIのリージョン（デフォルト: asia-southeast1）
         """
         self.service_account_path = service_account_path
         self.gcs_bucket_name = gcs_bucket_name
         self.service_account_info = service_account_info
+        self.location = location
+        
+        # リージョンの検証
+        if location not in self.SUPPORTED_REGIONS:
+            logger.warning(f"指定されたリージョン '{location}' はv2 APIでサポートされていない可能性があります")
+            logger.info(f"サポートされているリージョン: {self.SUPPORTED_REGIONS}")
         
         # 認証方法を決定
         if service_account_info:
             # Streamlit Secrets等からのJSONデータを使用
             credentials = service_account.Credentials.from_service_account_info(service_account_info)
-            self.speech_client = speech.SpeechClient(credentials=credentials)
+            self.project_id = service_account_info.get("project_id")
+            
+            # v2 API用のクライアントオプション（リージョンエンドポイント）
+            client_options = ClientOptions(
+                api_endpoint=f"{location}-speech.googleapis.com"
+            )
+            self.speech_client = SpeechClient(
+                credentials=credentials,
+                client_options=client_options
+            )
             self.storage_client = storage.Client(credentials=credentials)
+            
         elif service_account_path:
             # ファイルパスから認証情報を読み込み
-            self.speech_client = speech.SpeechClient.from_service_account_file(service_account_path)
+            with open(service_account_path, 'r') as f:
+                sa_info = json.load(f)
+            self.project_id = sa_info.get("project_id")
+            
+            credentials = service_account.Credentials.from_service_account_file(service_account_path)
+            
+            # v2 API用のクライアントオプション（リージョンエンドポイント）
+            client_options = ClientOptions(
+                api_endpoint=f"{location}-speech.googleapis.com"
+            )
+            self.speech_client = SpeechClient(
+                credentials=credentials,
+                client_options=client_options
+            )
             self.storage_client = storage.Client.from_service_account_json(service_account_path)
         else:
             raise ValueError("service_account_pathまたはservice_account_infoのいずれかを指定してください")
+        
+        # Recognizerのパスを設定（v2 APIでは必須）
+        self.recognizer_path = f"projects/{self.project_id}/locations/{self.location}/recognizers/_"
+        logger.info(f"Speech-to-Text v2 API (Chirp) を使用 - リージョン: {location}")
     
     def validate_audio_file(self, audio_path: str) -> bool:
         """
@@ -251,7 +295,7 @@ class AudioTranscriptionService:
     
     async def transcribe_audio_chunk(self, gcs_uri: str, chunk_index: int) -> Optional[str]:
         """
-        音声チャンクを文字起こし
+        音声チャンクを文字起こし（v2 API - Chirpモデル使用）
         
         Args:
             gcs_uri: GCS上の音声ファイルURI
@@ -261,23 +305,39 @@ class AudioTranscriptionService:
             Optional[str]: 文字起こし結果
         """
         try:
-            logger.info(f"チャンク {chunk_index} の文字起こし開始")
+            logger.info(f"チャンク {chunk_index} の文字起こし開始 (Chirpモデル)")
             
-            audio = speech.RecognitionAudio(uri=gcs_uri)
-            config = speech.RecognitionConfig(
-                encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-                sample_rate_hertz=16000,
-                language_code="ja-JP",  # 日本語
-                enable_automatic_punctuation=True,  # 自動句読点
-                enable_word_time_offsets=True,  # 単語レベルのタイムスタンプ
-                model="latest_long",  # 長時間音声用モデル
+            # v2 API用の認識設定
+            config = cloud_speech.RecognitionConfig(
+                auto_decoding_config=cloud_speech.AutoDetectDecodingConfig(),
+                language_codes=["ja-JP"],  # 日本語
+                model="chirp",  # Chirpモデル（最新の高精度モデル）
+                features=cloud_speech.RecognitionFeatures(
+                    enable_automatic_punctuation=True,  # 自動句読点
+                    enable_word_time_offsets=True,  # 単語レベルのタイムスタンプ
+                ),
+            )
+            
+            # バッチ認識用のファイル設定
+            file_metadata = cloud_speech.BatchRecognizeFileMetadata(uri=gcs_uri)
+            
+            # 出力設定（インラインで結果を取得）
+            output_config = cloud_speech.RecognitionOutputConfig(
+                inline_response_config=cloud_speech.InlineOutputConfig()
+            )
+            
+            # バッチ認識リクエスト
+            request = cloud_speech.BatchRecognizeRequest(
+                recognizer=self.recognizer_path,
+                config=config,
+                files=[file_metadata],
+                recognition_output_config=output_config,
             )
             
             # ブロッキング処理をスレッドで実行
             operation = await asyncio.to_thread(
-                self.speech_client.long_running_recognize,
-                config=config,
-                audio=audio
+                self.speech_client.batch_recognize,
+                request=request
             )
 
             logger.info(f"チャンク {chunk_index} の認識処理を待機中...")
@@ -287,8 +347,11 @@ class AudioTranscriptionService:
             
             # 結果を結合
             transcript = ""
-            for result in response.results:
-                transcript += result.alternatives[0].transcript + " "
+            for file_result in response.results.values():
+                if hasattr(file_result, 'inline_result') and file_result.inline_result:
+                    for result in file_result.inline_result.transcript.results:
+                        for alternative in result.alternatives:
+                            transcript += alternative.transcript + " "
             
             logger.info(f"チャンク {chunk_index} の文字起こし完了")
             return transcript.strip()
@@ -390,7 +453,7 @@ class AudioTranscriptionService:
         chunk_files = []
         
         try:
-            logger.info("音声ファイルの文字起こし処理を開始")
+            logger.info("音声ファイルの文字起こし処理を開始 (Speech-to-Text v2 API - Chirp)")
             logger.info(f"入力ファイル: {audio_path}")
             logger.info(f"出力ファイル: {output_path}")
             
@@ -449,10 +512,11 @@ async def main():
     # 出力設定
     OUTPUT_FILE_PATH = "./transcription_result.txt"
     
-    # サービス初期化
+    # サービス初期化（v2 API - Chirpモデル）
     service = AudioTranscriptionService(
         service_account_path=SERVICE_ACCOUNT_PATH,
-        gcs_bucket_name=GCS_BUCKET_NAME
+        gcs_bucket_name=GCS_BUCKET_NAME,
+        location="asia-southeast1"  # アジア圏に近いリージョン
     )
     
     try:
